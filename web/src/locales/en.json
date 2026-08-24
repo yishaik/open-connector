@@ -541,6 +541,17 @@
     "copiedToken": "Copied",
     "copyRuntimeToken": "Copy runtime token",
     "copiedRuntimeToken": "Copied runtime token",
+    "grants": {
+      "lead": "Choose which connected services this key may use, then pick actions. Unchecked means denied.",
+      "noConnectedServices": "Connect a provider first. Then it appears here so you can grant actions to this key.",
+      "off": "Not granted",
+      "actionCount": "{{count}} / {{total}} actions",
+      "accounts": "Accounts",
+      "reads": "Read",
+      "writes": "Write",
+      "proxy": "Allow raw API proxy for this service",
+      "action": "Action"
+    },
     "noTokensTitle": "No tokens",
     "noTokensDescription": "Create a token for /v1 or MCP access.",
     "table": {

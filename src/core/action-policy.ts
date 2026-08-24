@@ -109,7 +109,17 @@ export class ActionPolicySnapshot {
 
     const checks: PolicyCheck[] = [];
     for (const layer of this.layers) {
+      // Deployment/runtime empty allowlists mean "no extra ceiling".
+      // A runtime token with an empty allowlist grants nothing.
       if (layer.allowedActions.length === 0) {
+        if (layer.source === "token") {
+          return {
+            allowed: false,
+            code: "action_not_allowed",
+            message: `${action.id} is not included in the local action allowlist.`,
+            checks: [...checks, { source: layer.source, outcome: "allow_miss" }],
+          };
+        }
         continue;
       }
       const allowed = layer.allowedActions.find((rule) => rule.matches(action.id));

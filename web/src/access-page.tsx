@@ -46,6 +46,7 @@ import {
   validatePolicyEditorDraft,
 } from "./policy";
 import { PolicyEditor } from "./policy-editor";
+import { TokenGrantEditor, type TokenGrantChange } from "./token-grant-editor";
 import { PolicySuggestionInput } from "./policy-suggestion-input";
 import { Badge, EmptyState, FormStatus } from "./shared-ui";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ interface CreateTokenDialogProps {
   copied: boolean;
   draft: PolicyEditorDraft;
   connections: ConnectionGrantDraft;
+  connectionRecords: ConnectionRecord[];
   connectionOptions: ConnectionGrantOption[];
   providers: ProviderDefinition[];
   onNameChange(name: string): void;
@@ -114,7 +116,7 @@ export function AccessPage(props: AccessPageProps): ReactNode {
   const [editConnections, setEditConnections] = useState(() => createConnectionGrantDraft());
   const [policy, setPolicy] = useState(props.policy);
   const [runtimeDraft, setRuntimeDraft] = useState(() => createPolicyEditorDraft(props.policy.runtime));
-  const [policyExpanded, setPolicyExpanded] = useState(true);
+  const [policyExpanded, setPolicyExpanded] = useState(false);
   const [runtimeEditing, setRuntimeEditing] = useState(false);
   const [runtimeSaving, setRuntimeSaving] = useState(false);
   const [confirmRuntimeSave, setConfirmRuntimeSave] = useState(false);
@@ -403,6 +405,7 @@ export function AccessPage(props: AccessPageProps): ReactNode {
           copied={copied}
           draft={createDraft}
           connections={createConnections}
+          connectionRecords={props.connections}
           connectionOptions={connectionOptions}
           providers={props.providers}
           onNameChange={setName}
@@ -418,6 +421,7 @@ export function AccessPage(props: AccessPageProps): ReactNode {
           token={editingToken}
           draft={editTokenDraft}
           connections={editConnections}
+          connectionRecords={props.connections}
           connectionOptions={connectionOptions}
           providers={props.providers}
           status={tokenStatus}
@@ -771,12 +775,30 @@ function PolicyRuleReadout(props: { rules: PolicyRules }): ReactNode {
   );
 }
 
+function applyTokenGrant(
+  change: TokenGrantChange,
+  onDraftChange: (draft: PolicyEditorDraft) => void,
+  onConnectionsChange: (draft: ConnectionGrantDraft) => void,
+): void {
+  onDraftChange(
+    createPolicyEditorDraft({
+      allowedActions: change.allowedActions,
+      blockedActions: change.blockedActions,
+      allowedProxies: change.allowedProxies,
+      blockedProxies: [],
+    }),
+  );
+  onConnectionsChange(
+    change.allowedConnections.length > 0
+      ? { mode: "restricted", ids: change.allowedConnections }
+      : { mode: "unrestricted", ids: [] },
+  );
+}
+
 function CreateTokenDialog(props: CreateTokenDialogProps): ReactNode {
   const t = useTranslate();
   const mode = createTokenDialogMode(props.created);
   const created = mode === "created" ? props.created : null;
-  const issues = validatePolicyEditorDraft(props.draft, true);
-  const connectionIssue = connectionGrantIssue(props.connections);
 
   return (
     <Dialog open onOpenChange={(open) => (!open ? props.onClose() : undefined)}>
@@ -788,7 +810,7 @@ function CreateTokenDialog(props: CreateTokenDialogProps): ReactNode {
           <div>
             <DialogTitle>{mode === "created" ? t("access.newToken") : t("access.createToken")}</DialogTitle>
             <DialogDescription>
-              {mode === "created" ? t("access.tokenShownOnce") : t("access.createTokenDescription")}
+              {mode === "created" ? t("access.tokenShownOnce") : t("access.grants.lead")}
             </DialogDescription>
           </div>
           <Button variant="ghost" size="icon-sm" onClick={props.onClose} aria-label={t("access.closeCreateToken")}>
@@ -830,20 +852,14 @@ function CreateTokenDialog(props: CreateTokenDialogProps): ReactNode {
                   placeholder={t("access.namePlaceholder")}
                 />
               </Label>
-              <PolicyEditor
-                draft={props.draft}
+              <TokenGrantEditor
                 providers={props.providers}
-                includeProxies
-                proxyAccess="grant"
-                connectionEditor={
-                  <ConnectionGrantEditor
-                    draft={props.connections}
-                    options={props.connectionOptions}
-                    onChange={props.onConnectionsChange}
-                  />
-                }
-                connectionInvalid={connectionIssue != null}
-                onChange={props.onDraftChange}
+                connections={props.connectionRecords}
+                policy={{
+                  ...policyRulesFromEditorDraft(props.draft),
+                  allowedConnections: allowedConnectionsFromDraft(props.connections),
+                }}
+                onChange={(change) => applyTokenGrant(change, props.onDraftChange, props.onConnectionsChange)}
               />
               {props.status ? <FormStatus message={props.status} /> : null}
               <div className="token-dialog-actions">
@@ -851,7 +867,7 @@ function CreateTokenDialog(props: CreateTokenDialogProps): ReactNode {
                   <Button variant="outline" type="button" onClick={props.onClose}>
                     {t("common.close")}
                   </Button>
-                  <Button type="submit" disabled={!props.name.trim() || issues.length > 0 || connectionIssue != null}>
+                  <Button type="submit" disabled={!props.name.trim()}>
                     <KeyRound size={16} />
                     {t("access.createToken")}
                   </Button>
@@ -869,6 +885,7 @@ interface EditTokenPolicyDialogProps {
   token: RuntimeTokenSummary;
   draft: PolicyEditorDraft;
   connections: ConnectionGrantDraft;
+  connectionRecords: ConnectionRecord[];
   connectionOptions: ConnectionGrantOption[];
   providers: ProviderDefinition[];
   status: string | null;
@@ -880,8 +897,6 @@ interface EditTokenPolicyDialogProps {
 
 function EditTokenPolicyDialog(props: EditTokenPolicyDialogProps): ReactNode {
   const t = useTranslate();
-  const issues = validatePolicyEditorDraft(props.draft, true);
-  const connectionIssue = connectionGrantIssue(props.connections);
   return (
     <Dialog open onOpenChange={(open) => (!open ? props.onClose() : undefined)}>
       <DialogContent
@@ -899,20 +914,14 @@ function EditTokenPolicyDialog(props: EditTokenPolicyDialogProps): ReactNode {
         </DialogHeader>
         <div className="token-dialog-body">
           <form className="token-dialog-form" onSubmit={(event) => void props.onSubmit(event)}>
-            <PolicyEditor
-              draft={props.draft}
+            <TokenGrantEditor
               providers={props.providers}
-              includeProxies
-              proxyAccess="grant"
-              connectionEditor={
-                <ConnectionGrantEditor
-                  draft={props.connections}
-                  options={props.connectionOptions}
-                  onChange={props.onConnectionsChange}
-                />
-              }
-              connectionInvalid={connectionIssue != null}
-              onChange={props.onDraftChange}
+              connections={props.connectionRecords}
+              policy={{
+                ...policyRulesFromEditorDraft(props.draft),
+                allowedConnections: allowedConnectionsFromDraft(props.connections),
+              }}
+              onChange={(change) => applyTokenGrant(change, props.onDraftChange, props.onConnectionsChange)}
             />
             {props.status ? <FormStatus message={props.status} /> : null}
             <div className="token-dialog-actions">
@@ -920,7 +929,7 @@ function EditTokenPolicyDialog(props: EditTokenPolicyDialogProps): ReactNode {
                 <Button variant="outline" type="button" onClick={props.onClose}>
                   {t("common.close")}
                 </Button>
-                <Button type="submit" disabled={issues.length > 0 || connectionIssue != null}>
+                <Button type="submit">
                   <Save size={16} />
                   {t("access.policy.save")}
                 </Button>

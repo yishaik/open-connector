@@ -287,7 +287,11 @@ describe("ActionPolicyService", () => {
 
     expect(snapshot.state.deployment).not.toHaveProperty("allowedConnections");
     expect(snapshot.state.runtime).not.toHaveProperty("allowedConnections");
-    expect(snapshot.evaluate(action)).toEqual({ allowed: true, checks: [] });
+    expect(snapshot.evaluate(action)).toMatchObject({
+      allowed: false,
+      code: "action_not_allowed",
+      checks: [{ source: "token", outcome: "allow_miss" }],
+    });
     expect(snapshot.evaluateProxy("github")).toMatchObject({
       allowed: false,
       code: "proxy_not_allowed",
@@ -310,11 +314,60 @@ describe("ActionPolicyService", () => {
       }),
     ];
 
+    expect(unrestricted[0].evaluate(action)).toEqual({ allowed: true, checks: [] });
     for (const snapshot of unrestricted) {
       expect(snapshot.evaluateConnection()).toEqual({ allowed: true, checks: [] });
       expect(snapshot.evaluateConnection(workConnectionId)).toEqual({ allowed: true, checks: [] });
-      expect(snapshot.evaluate(action)).toEqual({ allowed: true, checks: [] });
     }
+    for (const snapshot of unrestricted.slice(1)) {
+      expect(snapshot.evaluate(action)).toMatchObject({
+        allowed: false,
+        code: "action_not_allowed",
+      });
+    }
+  });
+
+  it("denies actions when a runtime token has an empty allowlist", () => {
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: [],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedConnections: [],
+    });
+    expect(snapshot.evaluate(action)).toMatchObject({
+      allowed: false,
+      code: "action_not_allowed",
+      checks: [{ source: "token", outcome: "allow_miss" }],
+    });
+  });
+
+  it("lets one token read Gmail while another can send", () => {
+    const fetchEmails = { ...action, id: "gmail.fetch_emails", service: "gmail", name: "fetch_emails" };
+    const sendEmail = { ...action, id: "gmail.send_email", service: "gmail", name: "send_email" };
+    const createDraft = { ...action, id: "gmail.create_draft", service: "gmail", name: "create_draft" };
+    const service = new ActionPolicyService();
+    const whatsai = service.createSnapshot(undefined, {
+      allowedActions: ["gmail.fetch_emails"],
+      blockedActions: [],
+      allowedProxies: [],
+    });
+    const alfred = service.createSnapshot(undefined, {
+      allowedActions: ["gmail.fetch_emails", "gmail.create_draft"],
+      blockedActions: [],
+      allowedProxies: [],
+    });
+    const grok = service.createSnapshot(undefined, {
+      allowedActions: ["gmail.fetch_emails", "gmail.create_draft", "gmail.send_email"],
+      blockedActions: [],
+      allowedProxies: [],
+    });
+
+    expect(whatsai.evaluate(fetchEmails)).toMatchObject({ allowed: true });
+    expect(whatsai.evaluate(createDraft)).toMatchObject({ allowed: false });
+    expect(whatsai.evaluate(sendEmail)).toMatchObject({ allowed: false });
+    expect(alfred.evaluate(createDraft)).toMatchObject({ allowed: true });
+    expect(alfred.evaluate(sendEmail)).toMatchObject({ allowed: false });
+    expect(grok.evaluate(sendEmail)).toMatchObject({ allowed: true });
   });
 
   it("matches restricted connections by exact stable IDs", () => {

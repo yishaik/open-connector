@@ -2,6 +2,68 @@
   max-height: none;
 }
 
+.token-grant-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.token-grant-lead,
+.token-grant-empty {
+  margin: 0;
+  color: var(--muted-foreground, #667);
+  font-size: 13px;
+}
+
+.token-grant-service {
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.token-grant-service-toggle,
+.token-grant-actions label,
+.token-grant-accounts label,
+.token-grant-proxy {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.token-grant-service-toggle span,
+.token-grant-actions label span {
+  display: grid;
+  gap: 2px;
+}
+
+.token-grant-service-toggle small,
+.token-grant-actions small {
+  color: var(--muted-foreground, #667);
+  font-weight: 400;
+}
+
+.token-grant-body {
+  display: grid;
+  gap: 10px;
+  padding-left: 22px;
+}
+
+.token-grant-actions,
+.token-grant-accounts {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.token-grant-actions legend {
+  padding: 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+
 .access-panel {
   display: grid;
   gap: 16px;

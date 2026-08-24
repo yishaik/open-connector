@@ -1810,7 +1810,7 @@ describe("ConnectServer", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: "Work only",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: ["example"],
         allowedConnections: [workConnection.id],
@@ -1889,7 +1889,7 @@ describe("ConnectServer", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: "Work and ghost",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: [workConnection.id, "deleted-connection-id"],
@@ -1950,7 +1950,7 @@ describe("ConnectServer", () => {
       },
       body: JSON.stringify({
         name: "Work only",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: ["ungranted-connection-id"],
@@ -1964,7 +1964,7 @@ describe("ConnectServer", () => {
       },
       body: JSON.stringify({
         name: "Unrestricted",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: [],
@@ -2035,7 +2035,7 @@ describe("ConnectServer", () => {
       const response = await app.request("/api/runtime-tokens", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, allowedActions: ["*"], blockedActions: [], allowedProxies: [] }),
       });
       return ((await response.json()) as { token: string }).token;
     };
@@ -2107,7 +2107,7 @@ describe("ConnectServer", () => {
     const created = await app.request("/api/runtime-tokens", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Stored token" }),
+      body: JSON.stringify({ name: "Stored token", allowedActions: ["*"], blockedActions: [], allowedProxies: [] }),
     });
     const token = ((await created.json()) as { token: string }).token;
     const request = (key: string) => ({
