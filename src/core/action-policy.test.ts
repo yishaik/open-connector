@@ -417,4 +417,84 @@ describe("ActionPolicyService", () => {
     });
     expect(snapshot.evaluateConnection(workConnectionId)).toMatchObject({ allowed: true });
   });
+
+  it("allows the same action on one account and denies it on another", () => {
+    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const getMe: ActionDefinition = { ...action, id: "telegram.get_me", service: "telegram", name: "get_me" };
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: [
+        `telegram.get_me@${workConnectionId}`,
+        `telegram.get_me@${defaultConnectionId}`,
+        `telegram.send_message@${workConnectionId}`,
+      ],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedConnections: [workConnectionId, defaultConnectionId],
+    });
+
+    expect(snapshot.evaluate(sendMessage)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluate(getMe)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(sendMessage, workConnectionId)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(sendMessage, defaultConnectionId)).toMatchObject({
+      allowed: false,
+      code: "action_not_allowed",
+    });
+    expect(snapshot.evaluateConnectionAction(getMe, defaultConnectionId)).toMatchObject({ allowed: true });
+  });
+
+  it("keeps unscoped action rules valid on every granted connection", () => {
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: ["github.create_issue"],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedConnections: [workConnectionId, defaultConnectionId],
+    });
+    expect(snapshot.evaluateConnectionAction(action, defaultConnectionId)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(action, workConnectionId)).toMatchObject({ allowed: true });
+  });
+
+  it("lets an unscoped read rule apply to every account while send stays on one account", () => {
+    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const getMe: ActionDefinition = { ...action, id: "telegram.get_me", service: "telegram", name: "get_me" };
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: ["telegram.get_me", `telegram.send_message@${workConnectionId}`],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedConnections: [workConnectionId, defaultConnectionId],
+    });
+    expect(snapshot.evaluateConnectionAction(getMe, defaultConnectionId)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(getMe, workConnectionId)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(sendMessage, workConnectionId)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(sendMessage, defaultConnectionId)).toMatchObject({
+      allowed: false,
+      code: "action_not_allowed",
+    });
+  });
+
+  it("treats a service wildcard scoped to one account as all actions on that account only", () => {
+    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: [`telegram.*@${workConnectionId}`],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedConnections: [workConnectionId, defaultConnectionId],
+    });
+    expect(snapshot.evaluate(sendMessage)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(sendMessage, workConnectionId)).toMatchObject({ allowed: true });
+    expect(snapshot.evaluateConnectionAction(sendMessage, defaultConnectionId)).toMatchObject({
+      allowed: false,
+      code: "action_not_allowed",
+    });
+  });
+
+  it("still blocks a spend action even when a connection-scoped allow matches", () => {
+    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const snapshot = new ActionPolicyService().createSnapshot(undefined, {
+      allowedActions: [`telegram.send_message@${workConnectionId}`],
+      blockedActions: ["telegram.send_message"],
+      allowedProxies: [],
+      allowedConnections: [workConnectionId],
+    });
+    expect(snapshot.evaluate(sendMessage)).toMatchObject({ allowed: false, code: "action_blocked" });
+  });
 });

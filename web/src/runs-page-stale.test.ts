@@ -246,7 +246,7 @@ function run(id: string, service: string): RunLog {
 }
 
 function filters(input: Partial<Parameters<typeof runListPath>[0]["filters"]> = {}) {
-  return { service: null, actionId: "", caller: null, ok: null, ...input };
+  return { service: null, actionId: "", caller: null, ok: null, runtimeTokenId: null, ...input };
 }
 
 function findElement(

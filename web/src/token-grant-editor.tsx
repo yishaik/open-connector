@@ -3,11 +3,13 @@ import type { TokenGrantDraft, TokenGrantKind, TokenGrantService } from "./token
 import type { ReactNode } from "react";
 
 import { useTranslate } from "@embra/i18n/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
+  filterGrantServices,
   listGrantServices,
   tokenGrantDraftFromPolicy,
   tokenPolicyFromGrantDraft,
+  toggleAccount,
   toggleAction,
   toggleKind,
   toggleService,
@@ -31,6 +33,7 @@ interface TokenGrantEditorProps {
 
 export function TokenGrantEditor(props: TokenGrantEditorProps): ReactNode {
   const t = useTranslate();
+  const [query, setQuery] = useState("");
   const catalog = useMemo(
     () => listGrantServices(props.providers, props.connections).filter((service) => service.connected),
     [props.providers, props.connections],
@@ -39,6 +42,7 @@ export function TokenGrantEditor(props: TokenGrantEditorProps): ReactNode {
     () => tokenGrantDraftFromPolicy(props.policy, catalog),
     [props.policy, catalog],
   );
+  const filtered = useMemo(() => filterGrantServices(catalog, query), [catalog, query]);
 
   function emit(next: TokenGrantDraft): void {
     props.onChange(tokenPolicyFromGrantDraft(next, catalog));
@@ -51,7 +55,15 @@ export function TokenGrantEditor(props: TokenGrantEditorProps): ReactNode {
   return (
     <div className="token-grant-editor">
       <p className="token-grant-lead">{t("access.grants.lead")}</p>
-      {catalog.map((service) => (
+      <input
+        className="token-grant-search"
+        type="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder={t("access.grants.search")}
+        aria-label={t("access.grants.search")}
+      />
+      {filtered.map((service) => (
         <ServiceGrant
           key={service.service}
           service={service}
@@ -71,9 +83,7 @@ function ServiceGrant(props: {
   const t = useTranslate();
   const state = props.draft.services[props.service.service];
   const enabled = Boolean(state?.enabled);
-  const selected = new Set(state?.actionIds ?? []);
-  const reads = props.service.actions.filter((action) => action.kind === "read");
-  const writes = props.service.actions.filter((action) => action.kind === "write");
+  const grantedAccounts = props.service.accounts.filter((account) => state?.accounts[account.id]?.enabled);
 
   return (
     <section className="token-grant-service">
@@ -87,7 +97,15 @@ function ServiceGrant(props: {
           <strong>{props.service.displayName}</strong>
           <small>
             {enabled
-              ? t("access.grants.actionCount", { count: selected.size, total: props.service.actions.length })
+              ? props.service.accounts.length > 1
+                ? t("access.grants.accountCount", {
+                    count: grantedAccounts.length,
+                    total: props.service.accounts.length,
+                  })
+                : t("access.grants.actionCount", {
+                    count: grantedAccounts[0] ? (state?.accounts[grantedAccounts[0].id]?.actionIds.length ?? 0) : 0,
+                    total: props.service.actions.length,
+                  })
               : t("access.grants.off")}
           </small>
         </span>
@@ -95,54 +113,27 @@ function ServiceGrant(props: {
       {enabled ? (
         <div className="token-grant-body">
           {props.service.accounts.length > 1 ? (
-            <fieldset className="token-grant-accounts">
-              <legend>{t("access.grants.accounts")}</legend>
+            <>
+              <p className="token-grant-account-lead">{t("access.grants.accountLead")}</p>
               {props.service.accounts.map((account) => (
-                <label key={account.id}>
-                  <input
-                    type="checkbox"
-                    checked={state?.accountIds.includes(account.id) ?? false}
-                    onChange={(event) => {
-                      const ids = new Set(state?.accountIds ?? []);
-                      if (event.target.checked) {
-                        ids.add(account.id);
-                      } else {
-                        ids.delete(account.id);
-                      }
-                      props.onChange({
-                        services: {
-                          ...props.draft.services,
-                          [props.service.service]: {
-                            ...state!,
-                            accountIds: [...ids],
-                          },
-                        },
-                      });
-                    }}
-                  />
-                  <span>{account.name}</span>
-                </label>
+                <AccountGrant
+                  key={account.id}
+                  service={props.service}
+                  accountId={account.id}
+                  accountName={account.name}
+                  draft={props.draft}
+                  onChange={props.onChange}
+                />
               ))}
-            </fieldset>
-          ) : null}
-          <ActionGroup
-            title={t("access.grants.reads")}
-            kind="read"
-            actions={reads}
-            selected={selected}
-            draft={props.draft}
-            service={props.service}
-            onChange={props.onChange}
-          />
-          <ActionGroup
-            title={t("access.grants.writes")}
-            kind="write"
-            actions={writes}
-            selected={selected}
-            draft={props.draft}
-            service={props.service}
-            onChange={props.onChange}
-          />
+            </>
+          ) : (
+            <AccountActions
+              service={props.service}
+              accountId={props.service.accounts[0]?.id}
+              draft={props.draft}
+              onChange={props.onChange}
+            />
+          )}
           <label className="token-grant-proxy">
             <input
               type="checkbox"
@@ -164,6 +155,85 @@ function ServiceGrant(props: {
   );
 }
 
+function AccountGrant(props: {
+  service: TokenGrantService;
+  accountId: string;
+  accountName: string;
+  draft: TokenGrantDraft;
+  onChange(draft: TokenGrantDraft): void;
+}): ReactNode {
+  const t = useTranslate();
+  const state = props.draft.services[props.service.service];
+  const account = state?.accounts[props.accountId];
+  const enabled = Boolean(account?.enabled);
+  return (
+    <section className="token-grant-account">
+      <label className="token-grant-account-toggle">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => props.onChange(toggleAccount(props.draft, props.service, props.accountId, event.target.checked))}
+        />
+        <span>
+          <strong>{props.accountName}</strong>
+          <small>
+            {enabled
+              ? t("access.grants.actionCount", { count: account?.actionIds.length ?? 0, total: props.service.actions.length })
+              : t("access.grants.off")}
+          </small>
+        </span>
+      </label>
+      {enabled ? (
+        <AccountActions
+          service={props.service}
+          accountId={props.accountId}
+          draft={props.draft}
+          onChange={props.onChange}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function AccountActions(props: {
+  service: TokenGrantService;
+  accountId?: string;
+  draft: TokenGrantDraft;
+  onChange(draft: TokenGrantDraft): void;
+}): ReactNode {
+  const t = useTranslate();
+  const state = props.draft.services[props.service.service];
+  const selected = new Set(
+    props.accountId ? (state?.accounts[props.accountId]?.actionIds ?? []) : Object.values(state?.accounts ?? {})[0]?.actionIds ?? [],
+  );
+  const reads = props.service.actions.filter((action) => action.kind === "read");
+  const writes = props.service.actions.filter((action) => action.kind === "write");
+  return (
+    <>
+      <ActionGroup
+        title={t("access.grants.reads")}
+        kind="read"
+        actions={reads}
+        selected={selected}
+        draft={props.draft}
+        service={props.service}
+        accountId={props.accountId}
+        onChange={props.onChange}
+      />
+      <ActionGroup
+        title={t("access.grants.writes")}
+        kind="write"
+        actions={writes}
+        selected={selected}
+        draft={props.draft}
+        service={props.service}
+        accountId={props.accountId}
+        onChange={props.onChange}
+      />
+    </>
+  );
+}
+
 function ActionGroup(props: {
   title: string;
   kind: TokenGrantKind;
@@ -171,6 +241,7 @@ function ActionGroup(props: {
   selected: Set<string>;
   draft: TokenGrantDraft;
   service: TokenGrantService;
+  accountId?: string;
   onChange(draft: TokenGrantDraft): void;
 }): ReactNode {
   const t = useTranslate();
@@ -185,7 +256,9 @@ function ActionGroup(props: {
           <input
             type="checkbox"
             checked={allOn}
-            onChange={(event) => props.onChange(toggleKind(props.draft, props.service, props.kind, event.target.checked))}
+            onChange={(event) =>
+              props.onChange(toggleKind(props.draft, props.service, props.kind, event.target.checked, props.accountId))
+            }
           />
           <span>{props.title}</span>
         </label>
@@ -195,7 +268,9 @@ function ActionGroup(props: {
           <input
             type="checkbox"
             checked={props.selected.has(action.id)}
-            onChange={(event) => props.onChange(toggleAction(props.draft, props.service, action.id, event.target.checked))}
+            onChange={(event) =>
+              props.onChange(toggleAction(props.draft, props.service, action.id, event.target.checked, props.accountId))
+            }
           />
           <span>
             <code>{action.name}</code>

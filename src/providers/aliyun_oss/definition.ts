@@ -2,6 +2,8 @@ import type { ProviderDefinition } from "../../core/types.ts";
 
 import { aliyunOssActions } from "./actions.ts";
 
+export const nodeOnly = true;
+
 const service = "aliyun_oss";
 
 export const provider: ProviderDefinition = {

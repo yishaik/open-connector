@@ -8,10 +8,38 @@
 }
 
 .token-grant-lead,
-.token-grant-empty {
+.token-grant-empty,
+.token-grant-account-lead {
   margin: 0;
   color: var(--muted-foreground, #667);
   font-size: 13px;
+}
+
+.token-grant-search {
+  width: 100%;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.token-grant-account {
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.token-grant-account-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.token-grant-account-toggle span {
+  display: grid;
+  gap: 2px;
 }
 
 .token-grant-service {

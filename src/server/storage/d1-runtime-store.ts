@@ -528,6 +528,10 @@ export class D1RunLogStore implements IRunLogStore {
       conditions.push("ok = ?");
       values.push(input.ok ? 1 : 0);
     }
+    if (input.runtimeTokenId) {
+      conditions.push("json_extract(value, '$.runtimeTokenId') = ?");
+      values.push(input.runtimeTokenId);
+    }
     const where = conditions.length > 0 ? `where ${conditions.join(" and ")}` : "";
     const { results } = await this.database
       .prepare(`select service, value from runs ${where} order by started_at desc, id desc limit ?`)

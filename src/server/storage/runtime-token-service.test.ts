@@ -44,6 +44,7 @@ describe("RuntimeTokenService", () => {
 
     await expect(new RuntimeTokenService(store).resolveToken(token)).resolves.toEqual({
       tokenId: "token-1",
+      tokenName: "Issue bot",
       allowedActions: ["github.*"],
       blockedActions: ["github.delete_repository"],
       allowedProxies: ["github"],
@@ -80,6 +81,7 @@ describe("RuntimeTokenService", () => {
 
     await expect(new RuntimeTokenService(store, logger).resolveToken(token)).resolves.toEqual({
       tokenId: "token-1",
+      tokenName: "Issue bot",
       allowedActions: [],
       blockedActions: [],
       allowedProxies: [],
@@ -106,6 +108,7 @@ describe("RuntimeTokenService", () => {
     ]);
     await expect(service.resolveToken(created.token)).resolves.toMatchObject({
       tokenId: created.record.id,
+      tokenName: "Issue bot",
       allowedConnections: ["example:work", "example:personal"],
     });
     await expect(
