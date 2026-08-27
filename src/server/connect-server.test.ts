@@ -1765,7 +1765,13 @@ describe("ConnectServer", () => {
 
     const denied = await app.request("/v1/actions/example.echo", {
       method: "POST",
-      headers: { authorization: `Bearer ${token.token}`, "content-type": "application/json" },
+      headers: {
+        authorization: `Bearer ${token.token}`,
+        "content-type": "application/json",
+        "cf-connecting-ip": "203.0.113.10",
+        "cf-ipcountry": "IL",
+        "user-agent": "Cursor/1.0",
+      },
       body: JSON.stringify({ input: {} }),
     });
     expect(denied.status).toBe(400);
@@ -1774,6 +1780,8 @@ describe("ConnectServer", () => {
       items: [
         {
           runtimeTokenId: token.record.id,
+          runtimeTokenName: "Read only",
+          request: { ip: "203.0.113.10", country: "IL", userAgent: "Cursor/1.0" },
           policy: {
             allowed: false,
             checks: [{ source: "token", outcome: "block_match", rule: "example.echo" }],
@@ -1810,7 +1818,7 @@ describe("ConnectServer", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: "Work only",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: ["example"],
         allowedConnections: [workConnection.id],
@@ -1889,7 +1897,7 @@ describe("ConnectServer", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: "Work and ghost",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: [workConnection.id, "deleted-connection-id"],
@@ -1950,7 +1958,7 @@ describe("ConnectServer", () => {
       },
       body: JSON.stringify({
         name: "Work only",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: ["ungranted-connection-id"],
@@ -1964,7 +1972,7 @@ describe("ConnectServer", () => {
       },
       body: JSON.stringify({
         name: "Unrestricted",
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: [],
@@ -2035,7 +2043,7 @@ describe("ConnectServer", () => {
       const response = await app.request("/api/runtime-tokens", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, allowedActions: ["*"], blockedActions: [], allowedProxies: [] }),
       });
       return ((await response.json()) as { token: string }).token;
     };
@@ -2107,7 +2115,7 @@ describe("ConnectServer", () => {
     const created = await app.request("/api/runtime-tokens", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Stored token" }),
+      body: JSON.stringify({ name: "Stored token", allowedActions: ["*"], blockedActions: [], allowedProxies: [] }),
     });
     const token = ((await created.json()) as { token: string }).token;
     const request = (key: string) => ({
@@ -3534,6 +3542,71 @@ describe("ConnectServer", () => {
     expect((await app.request("/api/runs?ok=maybe")).status).toBe(400);
     expect((await app.request(`/api/runs?actionId=${"a".repeat(257)}`)).status).toBe(400);
   });
+
+  it("enforces different actions on two accounts of the same provider", async () => {
+    const runtimeTokens = new RuntimeTokenService(new MemoryRuntimeTokenStore());
+    const app = createTestServer([{ ...apiKeyProvider, actions: [echoAction, followUpAction] }], {
+      runtimeTokens,
+      providerLoader: new ProxyProviderLoader(),
+    }).createApp();
+    const defaultConnectionResponse = await app.request("/api/connections/example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ authType: "api_key", values: { apiKey: "ops-key" } }),
+    });
+    const ops = (await defaultConnectionResponse.json()) as { id: string };
+    const bridgeResponse = await app.request("/api/connections/example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        authType: "api_key",
+        connectionName: "bridge",
+        values: { apiKey: "bridge-key" },
+      }),
+    });
+    const bridge = (await bridgeResponse.json()) as { id: string };
+    const created = await app.request("/api/runtime-tokens", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "telegram-split",
+        allowedActions: [`example.echo@${ops.id}`, `example.echo@${bridge.id}`, `example.follow_up@${ops.id}`],
+        blockedActions: [],
+        allowedProxies: [],
+        allowedConnections: [ops.id, bridge.id],
+      }),
+    });
+    const token = (await created.json()) as { token: string };
+    const authorize = { authorization: `Bearer ${token.token}`, "content-type": "application/json" };
+
+    const opsEcho = await app.request("/v1/actions/example.echo", {
+      method: "POST",
+      headers: authorize,
+      body: JSON.stringify({ input: { message: "hi" } }),
+    });
+    const bridgeEcho = await app.request("/v1/actions/example.echo", {
+      method: "POST",
+      headers: { ...authorize, "x-oo-connector-alias": "bridge" },
+      body: JSON.stringify({ input: { message: "hi" } }),
+    });
+    const opsFollowUp = await app.request("/v1/actions/example.follow_up", {
+      method: "POST",
+      headers: authorize,
+      body: JSON.stringify({ input: {} }),
+    });
+    const bridgeFollowUp = await app.request("/v1/actions/example.follow_up", {
+      method: "POST",
+      headers: { ...authorize, "x-oo-connector-alias": "bridge" },
+      body: JSON.stringify({ input: {} }),
+    });
+
+    expect(opsEcho.status).toBe(200);
+    expect(bridgeEcho.status).toBe(200);
+    expect(bridgeFollowUp.status).toBe(400);
+    await expect(bridgeFollowUp.json()).resolves.toMatchObject({ errorCode: "action_not_allowed" });
+    const opsFollowUpBody = (await opsFollowUp.json()) as { errorCode?: string };
+    expect(opsFollowUpBody.errorCode).not.toBe("action_not_allowed");
+  });
 });
 
 interface TestAuthOptions {
@@ -4048,7 +4121,8 @@ class MemoryRunLogStore implements IRunLogStore {
         (!input.service || run.service === input.service) &&
         (!input.actionId || run.actionId === input.actionId) &&
         (!input.caller || run.caller === input.caller) &&
-        (input.ok === undefined || run.ok === input.ok),
+        (input.ok === undefined || run.ok === input.ok) &&
+        (!input.runtimeTokenId || run.runtimeTokenId === input.runtimeTokenId),
     );
     const start = cursor
       ? filteredRuns.findIndex((run) => run.startedAt === cursor.startedAt && run.id === cursor.id) + 1

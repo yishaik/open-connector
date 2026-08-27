@@ -410,7 +410,13 @@ function AppShell(props: {
             <Route path="/actions/:actionId" element={<ActionsPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route
               path="/runs"
-              element={<RunsPage initialRuns={props.data.runs} nextCursor={props.data.runsNextCursor} />}
+              element={
+                <RunsPage
+                  initialRuns={props.data.runs}
+                  nextCursor={props.data.runsNextCursor}
+                  tokens={props.data.runtimeTokens}
+                />
+              }
             />
             <Route
               path="/access"

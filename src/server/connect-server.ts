@@ -10,7 +10,7 @@ import type { ITransitFileService, TransitFileUpload } from "./files/transit-fil
 import type { Logger } from "./logger.ts";
 import type { IIdempotencyStore } from "./storage/idempotency-store.ts";
 import type { IRuntimePolicyStore } from "./storage/runtime-policy-store.ts";
-import type { RunLogCaller, RunLogListInput } from "./storage/runtime-store.ts";
+import type { RunLogCaller, RunLogListInput, RunLogPage } from "./storage/runtime-store.ts";
 import type { RuntimeGrant, RuntimeTokenService } from "./storage/runtime-token-service.ts";
 import type { Context } from "hono";
 
@@ -33,6 +33,7 @@ import {
   readIdempotencyKey,
 } from "./actions/action-idempotency.ts";
 import { ActionRunner } from "./actions/action-runner.ts";
+import { readRunRequestOrigin } from "./actions/run-request-origin.ts";
 import { renderActionMarkdown } from "./api/action-markdown.ts";
 import { clearLocalAuthCookie, createLocalAuthMiddleware, readLocalAuthSession, readRuntimeGrant } from "./api/auth.ts";
 import { getResponseCachePolicy } from "./api/cache-policy.ts";
@@ -321,12 +322,16 @@ export class ConnectServer {
       return jsonError(context, 400, "invalid_input", query.message);
     }
 
-    return context.json(await this.options.actions.listRuns(query.input));
+    return context.json(await this.withTokenNames(await this.options.actions.listRuns(query.input)));
   }
 
   private async getRun(context: Context, id: string): Promise<Response> {
     const run = await this.options.actions.getRun(id);
-    return run ? context.json(run) : jsonError(context, 404, "run_not_found", `Run not found: ${id}.`);
+    if (!run) {
+      return jsonError(context, 404, "run_not_found", `Run not found: ${id}.`);
+    }
+    const [named] = (await this.withTokenNames({ items: [run] })).items;
+    return context.json(named);
   }
 
   private async searchApiActions(context: Context): Promise<Response> {
@@ -480,7 +485,7 @@ export class ConnectServer {
     if (!policy.evaluate(action).allowed) {
       return writeRuntimeActionHttpResult(
         context,
-        await this.executeRuntimeAction(actionId, input, connectionName, policy, runtimeGrant, context.req.raw.signal),
+        await this.executeRuntimeAction(actionId, input, connectionName, policy, runtimeGrant, context),
       );
     }
     const idempotencyKey = readIdempotencyKey(context.req.header("idempotency-key"));
@@ -496,7 +501,7 @@ export class ConnectServer {
     if (!idempotencyKey.key) {
       return writeRuntimeActionHttpResult(
         context,
-        await this.executeRuntimeAction(actionId, input, connectionName, policy, runtimeGrant, context.req.raw.signal),
+        await this.executeRuntimeAction(actionId, input, connectionName, policy, runtimeGrant, context),
       );
     }
 
@@ -550,14 +555,7 @@ export class ConnectServer {
       return writeRuntimeActionHttpResult(context, claim.response);
     }
 
-    const result = await this.executeRuntimeAction(
-      actionId,
-      input,
-      connectionName,
-      policy,
-      runtimeGrant,
-      context.req.raw.signal,
-    );
+    const result = await this.executeRuntimeAction(actionId, input, connectionName, policy, runtimeGrant, context);
     const completed = await this.options.idempotency.complete({
       keyHash,
       requestHash,
@@ -578,7 +576,7 @@ export class ConnectServer {
     connectionName: string | undefined,
     policy: ActionPolicySnapshot,
     runtimeGrant: RuntimeGrant | undefined,
-    signal: AbortSignal | undefined,
+    context: Context,
   ): Promise<RuntimeActionHttpResult> {
     try {
       const run = await this.options.actions.run({
@@ -588,7 +586,9 @@ export class ConnectServer {
         connectionName,
         policy,
         runtimeTokenId: runtimeGrant?.tokenId,
-        signal,
+        runtimeTokenName: runtimeGrant?.tokenName,
+        request: readRunRequestOrigin(context.req.raw.headers),
+        signal: context.req.raw.signal,
       });
       if (!run) {
         return serializeRuntimeFailure(unknownActionFailure(actionId));
@@ -757,6 +757,7 @@ export class ConnectServer {
           actionSearch: this.actionSearch,
           getPolicySnapshot: () => this.getPolicySnapshot(context),
           runtimeGrant: readRuntimeGrant(context),
+          request: readRunRequestOrigin(context.req.raw.headers),
           signal: context.req.raw.signal,
         }),
       { legacy: "stateless", responseMode: "json" },
@@ -1123,6 +1124,23 @@ export class ConnectServer {
     }
   }
 
+  private async withTokenNames(page: RunLogPage): Promise<RunLogPage> {
+    const missing = page.items.filter((run) => run.runtimeTokenId && !run.runtimeTokenName).map((run) => run.runtimeTokenId);
+    if (missing.length === 0) {
+      return page;
+    }
+    const tokens = await this.options.runtimeTokens.listTokens();
+    const names = new Map(tokens.map((token) => [token.id, token.name]));
+    return {
+      ...page,
+      items: page.items.map((run) =>
+        run.runtimeTokenName || !run.runtimeTokenId
+          ? run
+          : { ...run, runtimeTokenName: names.get(run.runtimeTokenId) },
+      ),
+    };
+  }
+
   private getPolicySnapshot(context: Context): Promise<ActionPolicySnapshot> {
     const request = context.req.raw;
     let snapshot = this.policySnapshots.get(request);
@@ -1311,6 +1329,13 @@ function readRunLogListInput(context: Context): RunLogListQuery {
       return { ok: false, message: "ok must be true or false." };
     }
     input.ok = ok === "true";
+  }
+  const runtimeTokenId = optionalString(context.req.query("runtimeTokenId"));
+  if (runtimeTokenId !== undefined) {
+    if (runtimeTokenId.length > 128) {
+      return { ok: false, message: "runtimeTokenId must be at most 128 characters." };
+    }
+    input.runtimeTokenId = runtimeTokenId;
   }
 
   return { ok: true, input };

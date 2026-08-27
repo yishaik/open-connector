@@ -2,6 +2,8 @@ import type { ProviderDefinition } from "../../core/types.ts";
 
 import { mqttActions } from "./actions.ts";
 
+export const nodeOnly = true;
+
 export const provider: ProviderDefinition = {
   service: "mqtt",
   displayName: "MQTT",

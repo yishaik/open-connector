@@ -2,6 +2,8 @@ import type { ProviderDefinition } from "../../core/types.ts";
 
 import { postmanActions } from "./actions.ts";
 
+export const nodeOnly = true;
+
 const service = "postman";
 
 /**

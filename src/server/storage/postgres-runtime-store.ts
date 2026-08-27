@@ -609,6 +609,9 @@ class PostgresRunLogStore implements IRunLogStore {
     if (input.ok !== undefined) {
       conditions.push(`ok = $${values.push(input.ok ? 1 : 0)}`);
     }
+    if (input.runtimeTokenId) {
+      conditions.push(`(value::json)->>'runtimeTokenId' = $${values.push(input.runtimeTokenId)}`);
+    }
     const where = conditions.length > 0 ? `where ${conditions.join(" and ")}` : "";
     const limitParameter = values.push(limit + 1);
     const result = await this.pool.query<RuntimeRow>(

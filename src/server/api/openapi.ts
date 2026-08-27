@@ -722,6 +722,10 @@ export function createOpenApiDocument(
             ),
             connectionId: jsonSchema.string({ description: "Stable connection identifier used by the run." }),
             runtimeTokenId: jsonSchema.string({ description: "Stored runtime token identifier used by the run." }),
+            runtimeTokenName: jsonSchema.string({ description: "Display name of the stored runtime token used by the run." }),
+            request: jsonSchema.unknownObject(
+              "Caller origin recorded for the run: IP, country, user agent, and host when available.",
+            ),
             policy: { $ref: "#/components/schemas/PolicyDecision" },
             inputSummary: {
               description: "Redacted action input summary.",

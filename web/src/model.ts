@@ -165,6 +165,13 @@ export interface RunLog {
   ok: boolean;
   connectionId?: string;
   runtimeTokenId?: string;
+  runtimeTokenName?: string;
+  request?: {
+    ip?: string;
+    country?: string;
+    userAgent?: string;
+    host?: string;
+  };
   policy?: PolicyDecision;
   connectionProfile?: {
     displayName?: string;

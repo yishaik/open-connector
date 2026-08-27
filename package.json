@@ -16,6 +16,8 @@
     "deploy:cloudflare": "npm run generate:catalog && npm run build:web && node scripts/copy-catalog-assets.ts && wrangler deploy --config wrangler.local.jsonc --minify",
     "start": "node scripts/ensure-generated.ts && node src/server/index.ts",
     "test": "vitest run",
+    "test:grants": "vitest run src/core/action-policy.test.ts src/server/actions/action-runner.test.ts web/src/token-grant.test.ts web/src/token-grant-flows.test.ts web/src/token-grant-editor.test.ts web/src/access-page.test.ts web/src/i18n.test.ts",
+    "test:grants:http": "vitest run src/server/connect-server.test.ts --testNamePattern \"enforces different actions on two accounts\"",
     "typecheck": "npm run generate:registry && node scripts/typecheck.ts src scripts-all examples",
     "generate:registry": "node scripts/generate-provider-registry.ts",
     "generate:catalog": "node scripts/generate-catalog.ts",

@@ -470,6 +470,19 @@ describe("D1RuntimeDatabase", () => {
     await expect(database.runLogStore.get("missing")).resolves.toBeUndefined();
   });
 
+  it("filters runs by stored runtime token id", async () => {
+    const database = new D1RuntimeDatabase(new SqliteD1Database(), { runLimit: 5 });
+    await database.runLogStore.add({
+      ...createRun("run-whatsai", "2026-06-30T00:00:02.000Z"),
+      runtimeTokenId: "token-whatsai",
+      runtimeTokenName: "whatsai",
+    });
+    await database.runLogStore.add(createRun("run-other", "2026-06-30T00:00:01.000Z"));
+    await expect(database.runLogStore.list({ runtimeTokenId: "token-whatsai" })).resolves.toMatchObject({
+      items: [{ id: "run-whatsai", runtimeTokenName: "whatsai" }],
+    });
+  });
+
   it("keeps an inserted run when retention cleanup fails", async () => {
     const d1 = new SqliteD1Database();
     const database = new D1RuntimeDatabase(d1, { runLimit: 1 });

@@ -53,7 +53,21 @@ export interface ActionPolicyConfig {
 
 interface CompiledRule {
   pattern: string;
+  connectionId?: string;
   matches(value: string): boolean;
+}
+
+export function parseConnectionScopedActionRule(pattern: string): { actionPattern: string; connectionId?: string } {
+  const at = pattern.lastIndexOf("@");
+  if (at <= 0) {
+    return { actionPattern: pattern };
+  }
+  const actionPattern = pattern.slice(0, at);
+  const connectionId = pattern.slice(at + 1);
+  if (!connectionId || (actionPattern !== "*" && !actionPattern.includes("."))) {
+    return { actionPattern: pattern };
+  }
+  return { actionPattern, connectionId };
 }
 
 interface CompiledLayer {
@@ -109,7 +123,17 @@ export class ActionPolicySnapshot {
 
     const checks: PolicyCheck[] = [];
     for (const layer of this.layers) {
+      // Deployment/runtime empty allowlists mean "no extra ceiling".
+      // A runtime token with an empty allowlist grants nothing.
       if (layer.allowedActions.length === 0) {
+        if (layer.source === "token") {
+          return {
+            allowed: false,
+            code: "action_not_allowed",
+            message: `${action.id} is not included in the local action allowlist.`,
+            checks: [...checks, { source: layer.source, outcome: "allow_miss" }],
+          };
+        }
         continue;
       }
       const allowed = layer.allowedActions.find((rule) => rule.matches(action.id));
@@ -194,6 +218,30 @@ export class ActionPolicySnapshot {
       checks: [{ source: "token", outcome: "allow_miss" }],
     };
   }
+
+  evaluateConnectionAction(action: ActionDefinition, connectionId?: string): ActionPolicyDecision {
+    const tokenLayer = this.layers.find((layer) => layer.source === "token");
+    if (!tokenLayer || tokenLayer.allowedActions.length === 0) {
+      return { allowed: true, checks: [] };
+    }
+    const matching = tokenLayer.allowedActions.filter((rule) => rule.matches(action.id));
+    const unscoped = matching.filter((rule) => !rule.connectionId);
+    if (unscoped.length > 0 || matching.length === 0) {
+      return { allowed: true, checks: [] };
+    }
+    if (connectionId && matching.some((rule) => rule.connectionId === connectionId)) {
+      return {
+        allowed: true,
+        checks: [{ source: "token", outcome: "allow_match", rule: `${action.id}@${connectionId}` }],
+      };
+    }
+    return {
+      allowed: false,
+      code: "action_not_allowed",
+      message: `${action.id} is not granted on the selected connection.`,
+      checks: [{ source: "token", outcome: "allow_miss" }],
+    };
+  }
 }
 
 /**
@@ -273,14 +321,15 @@ function compileLayer(source: PolicySource, rules: PolicyRules): CompiledLayer {
 }
 
 function compileActionRule(pattern: string): CompiledRule {
-  if (pattern === "*") {
-    return { pattern, matches: () => true };
+  const { actionPattern, connectionId } = parseConnectionScopedActionRule(pattern);
+  if (actionPattern === "*") {
+    return { pattern, connectionId, matches: () => true };
   }
-  if (pattern.endsWith(".*")) {
-    const prefix = pattern.slice(0, -1);
-    return { pattern, matches: (actionId) => actionId.startsWith(prefix) };
+  if (actionPattern.endsWith(".*")) {
+    const prefix = actionPattern.slice(0, -1);
+    return { pattern, connectionId, matches: (actionId) => actionId.startsWith(prefix) };
   }
-  return { pattern, matches: (actionId) => actionId === pattern };
+  return { pattern, connectionId, matches: (actionId) => actionId === actionPattern };
 }
 
 function compileProxyRule(pattern: string): CompiledRule {

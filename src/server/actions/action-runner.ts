@@ -4,7 +4,14 @@ import type { ActionPolicyDecision, ActionPolicyService, ActionPolicySnapshot } 
 import type { ExecutionContext, ExecutionResult, TransitFileWriter } from "../../core/types.ts";
 import type { IProviderLoader } from "../../providers/provider-loader.ts";
 import type { Logger } from "../logger.ts";
-import type { IRunLogStore, RunLog, RunLogCaller, RunLogListInput, RunLogPage } from "../storage/runtime-store.ts";
+import type {
+  IRunLogStore,
+  RunLog,
+  RunLogCaller,
+  RunLogListInput,
+  RunLogPage,
+  RunRequestOrigin,
+} from "../storage/runtime-store.ts";
 
 import { ConnectionError } from "../../connection-service.ts";
 import { executeAction as executeProviderAction } from "../../core/execution.ts";
@@ -27,6 +34,8 @@ export interface RunActionInput {
   connectionName?: string;
   policy?: ActionPolicySnapshot;
   runtimeTokenId?: string;
+  runtimeTokenName?: string;
+  request?: RunRequestOrigin;
   signal?: AbortSignal;
 }
 
@@ -89,6 +98,14 @@ export class ActionRunner {
           policy = connectionPolicy;
           result = { ok: false, error: { code: policy.code, message: policy.message } };
         } else {
+          const connectionActionPolicy =
+            summary && summary.authType !== "no_auth"
+              ? snapshot?.evaluateConnectionAction(action, summary.id)
+              : undefined;
+          if (connectionActionPolicy && !connectionActionPolicy.allowed) {
+            policy = connectionActionPolicy;
+            result = { ok: false, error: { code: policy.code, message: policy.message } };
+          } else {
           connection = await this.options.connections.resolveForExecution(action.service, input.connectionName);
           input.signal?.throwIfAborted();
           const executor = action.execution.locallyExecutable
@@ -107,6 +124,7 @@ export class ActionRunner {
           );
           if (input.signal?.aborted) {
             result = cancelledExecutionResult();
+          }
           }
         }
       } catch (error) {
@@ -145,6 +163,8 @@ export class ActionRunner {
       connectionId: connection?.summary?.id,
       connectionProfile: connection?.summary?.profile,
       runtimeTokenId: input.runtimeTokenId,
+      runtimeTokenName: input.runtimeTokenName,
+      request: input.request,
       policy,
       inputSummary: this.summarizeAuditValue(input.input, logContext),
       outputSummary: result.ok ? this.summarizeAuditValue(result.output, logContext) : undefined,
@@ -165,6 +185,8 @@ export class ActionRunner {
     const completedLogContext = {
       ...logContext,
       connectionId: connection?.summary?.id,
+      runtimeTokenId: input.runtimeTokenId,
+      runtimeTokenName: input.runtimeTokenName,
       durationMs,
       ok: result.ok,
       errorCode: result.error?.code,

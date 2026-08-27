@@ -37,9 +37,17 @@ describe("runListPath", () => {
     expect(
       runListPath({
         cursor: "next cursor",
-        filters: filters({ service: "gmail", actionId: "gmail.search_threads", caller: "mcp", ok: false }),
+        filters: filters({
+          service: "gmail",
+          actionId: "gmail.search_threads",
+          caller: "mcp",
+          ok: false,
+          runtimeTokenId: "token-1",
+        }),
       }),
-    ).toBe("/api/runs?limit=50&cursor=next+cursor&service=gmail&actionId=gmail.search_threads&caller=mcp&ok=false");
+    ).toBe(
+      "/api/runs?limit=50&cursor=next+cursor&service=gmail&actionId=gmail.search_threads&caller=mcp&ok=false&runtimeTokenId=token-1",
+    );
   });
 });
 
@@ -47,9 +55,15 @@ describe("runFiltersFromSearchParams", () => {
   it("reads structured filters from the URL query", () => {
     expect(
       runFiltersFromSearchParams(
-        new URLSearchParams("service=hackernews&actionId=hackernews.get_item&caller=mcp&ok=false"),
+        new URLSearchParams("service=hackernews&actionId=hackernews.get_item&caller=mcp&ok=false&runtimeTokenId=token-1"),
       ),
-    ).toEqual({ service: "hackernews", actionId: "hackernews.get_item", caller: "mcp", ok: false });
+    ).toEqual({
+      service: "hackernews",
+      actionId: "hackernews.get_item",
+      caller: "mcp",
+      ok: false,
+      runtimeTokenId: "token-1",
+    });
   });
 });
 
@@ -63,7 +77,7 @@ describe("RunsPage", () => {
     expect(markup).toContain("runs.noRunsTitle");
   });
 
-  it("renders six audit columns and connection context", () => {
+  it("renders seven audit columns and connection context", () => {
     const auditRun = {
       ...run("execution-1", "gmail.search_threads", "gmail"),
       connectionProfile: { displayName: "Finance workspace" },
@@ -73,10 +87,10 @@ describe("RunsPage", () => {
       createElement(MemoryRouter, null, createElement(RunsPage, { initialRuns: [auditRun] })),
     );
 
-    for (const heading of ["action", "context", "status", "timing", "input", "result"]) {
+    for (const heading of ["action", "context", "key", "status", "timing", "input", "result"]) {
       expect(markup).toContain(`runs.table.${heading}`);
     }
-    const headings = ["timing", "status", "action", "context", "input", "result"].map((heading) =>
+    const headings = ["timing", "key", "status", "action", "context", "input", "result"].map((heading) =>
       markup.indexOf(`runs.table.${heading}`),
     );
     expect(headings).toEqual([...headings].sort((left, right) => left - right));
@@ -113,11 +127,13 @@ describe("RunsPage", () => {
     expect(markup).toContain("The provider rate limit was reached.");
   });
 
-  it("renders policy and stored token context without adding a table column", () => {
+  it("shows the key name, caller origin, and policy outcome", () => {
     const auditRun: RunLog = {
       ...run("execution-policy", "github.delete_repository", "github"),
       ok: false,
       runtimeTokenId: "token-1",
+      runtimeTokenName: "grok-mcp",
+      request: { ip: "203.0.113.10", country: "IL", userAgent: "Cursor/1.0" },
       policy: {
         allowed: false,
         checks: [{ source: "token", outcome: "block_match", rule: "github.delete_repository" }],
@@ -127,15 +143,19 @@ describe("RunsPage", () => {
       createElement(MemoryRouter, null, createElement(RunsPage, { initialRuns: [auditRun] })),
     );
 
+    expect(markup).toContain("grok-mcp");
+    expect(markup).toContain("runs.from");
+    expect(markup).toContain("203.0.113.10");
+    expect(markup).toContain("IL");
+    expect(markup).toContain("Cursor/1.0");
     expect(markup).toContain("runs.policyBlocked");
     expect(markup).toContain("access.policy.sources.token: github.delete_repository");
-    expect(markup).toContain("runs.runtimeToken: token-1");
-    expect(markup).not.toContain("runs.table.policy");
+    expect(markup).toContain("runs.table.key");
   });
 });
 
 function filters(input: Partial<ReturnType<typeof runFiltersFromSearchParams>> = {}) {
-  return { service: null, actionId: "", caller: null, ok: null, ...input };
+  return { service: null, actionId: "", caller: null, ok: null, runtimeTokenId: null, ...input };
 }
 
 function run(id: string, actionId: string, service: string): RunLog {

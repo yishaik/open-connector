@@ -1,4 +1,4 @@
-import type { RunLog, RunLogPage } from "./model";
+import type { RunLog, RunLogPage, RuntimeTokenSummary } from "./model";
 import type { ReactNode, SubmitEvent } from "react";
 
 import { useTranslate } from "@embra/i18n/react";
@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface RunsPageProps {
   initialRuns: RunLog[];
   nextCursor?: string;
+  tokens?: RuntimeTokenSummary[];
 }
 
 interface RunServiceOption {
@@ -29,11 +30,13 @@ export interface RunFilters {
   actionId: string;
   caller: RunLog["caller"] | null;
   ok: boolean | null;
+  runtimeTokenId: string | null;
 }
 
 const allServicesFilterValue = "__all_services__";
 const allCallersFilterValue = "__all_callers__";
 const allStatusesFilterValue = "__all_statuses__";
+const allKeysFilterValue = "__all_keys__";
 const runPageLimit = 50;
 
 export function RunsPage(props: RunsPageProps): ReactNode {
@@ -52,7 +55,13 @@ export function RunsPage(props: RunsPageProps): ReactNode {
     () => [...new Set([...props.initialRuns, ...runs].map((run) => run.caller))],
     [props.initialRuns, runs],
   );
-  const hasFilters = Boolean(filters.service || filters.actionId || filters.caller || filters.ok !== null);
+  const tokenOptions = useMemo(
+    () => runTokenOptions(props.tokens ?? [], [...props.initialRuns, ...runs]),
+    [props.tokens, props.initialRuns, runs],
+  );
+  const hasFilters = Boolean(
+    filters.service || filters.actionId || filters.caller || filters.ok !== null || filters.runtimeTokenId,
+  );
 
   useEffect(() => {
     const generation = ++requestGeneration.current;
@@ -153,6 +162,18 @@ export function RunsPage(props: RunsPageProps): ReactNode {
             ))}
           </RunSelect>
           <RunSelect
+            label={t("runs.key")}
+            value={filters.runtimeTokenId ?? allKeysFilterValue}
+            onChange={(value) => updateFilter("runtimeTokenId", value === allKeysFilterValue ? null : value)}
+          >
+            <SelectItem value={allKeysFilterValue}>{t("runs.allKeys")}</SelectItem>
+            {tokenOptions.map((token) => (
+              <SelectItem key={token.id} value={token.id}>
+                {token.name}
+              </SelectItem>
+            ))}
+          </RunSelect>
+          <RunSelect
             label={t("runs.caller")}
             value={filters.caller ?? allCallersFilterValue}
             onChange={(value) => updateFilter("caller", value === allCallersFilterValue ? null : value)}
@@ -183,6 +204,7 @@ export function RunsPage(props: RunsPageProps): ReactNode {
               <TableHeader>
                 <TableRow>
                   <TableHead className="run-col-timing">{t("runs.table.timing")}</TableHead>
+                  <TableHead className="run-col-key">{t("runs.table.key")}</TableHead>
                   <TableHead className="run-col-status">{t("runs.table.status")}</TableHead>
                   <TableHead className="run-col-action">{t("runs.table.action")}</TableHead>
                   <TableHead className="run-col-context">{t("runs.table.context")}</TableHead>
@@ -202,6 +224,10 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                         <TableCell className="run-col-timing">
                           <div className="run-primary">{formatDate(run.startedAt)}</div>
                           <div className="run-secondary">{formatDuration(run)}</div>
+                        </TableCell>
+                        <TableCell className="run-col-key">
+                          <div className="run-primary">{run.runtimeTokenName ?? t("runs.noKey")}</div>
+                          {run.runtimeTokenId ? <div className="run-secondary mono">{run.runtimeTokenId}</div> : null}
                         </TableCell>
                         <TableCell className="run-col-status">
                           {run.ok ? (
@@ -234,6 +260,18 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                           <div className="run-secondary">
                             {run.connectionProfile?.displayName ?? run.connectionId ?? "-"}
                           </div>
+                          {run.request?.ip || run.request?.country ? (
+                            <div className="run-secondary">
+                              {t("runs.from")}
+                              {run.request.country ? ` ${run.request.country}` : ""}
+                              {run.request.ip ? ` ${run.request.ip}` : ""}
+                            </div>
+                          ) : null}
+                          {run.request?.userAgent ? (
+                            <div className="run-secondary" title={run.request.userAgent}>
+                              {run.request.userAgent}
+                            </div>
+                          ) : null}
                           {run.policy ? (
                             <div className="run-secondary mono">
                               {t(run.policy.allowed ? "runs.policyAllowed" : "runs.policyBlocked")}
@@ -242,11 +280,7 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                                 : ""}
                             </div>
                           ) : null}
-                          {run.runtimeTokenId ? (
-                            <div className="run-secondary mono">
-                              {t("runs.runtimeToken")}: {run.runtimeTokenId}
-                            </div>
-                          ) : null}
+
                         </TableCell>
                         <TableCell className="mono run-summary run-col-summary">
                           {compactJson(run.inputSummary)}
@@ -284,7 +318,7 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                       </TableRow>
                       {expanded ? (
                         <TableRow className="run-result-detail-row">
-                          <TableCell colSpan={6}>
+                          <TableCell colSpan={7}>
                             <pre className="run-result-detail">{JSON.stringify(run.outputSummary, null, 2)}</pre>
                           </TableCell>
                         </TableRow>
@@ -333,6 +367,22 @@ function RunSelect(props: {
   );
 }
 
+export function runTokenOptions(
+  tokens: RuntimeTokenSummary[],
+  runs: RunLog[],
+): Array<{ id: string; name: string }> {
+  const names = new Map<string, string>();
+  for (const token of tokens) {
+    names.set(token.id, token.name);
+  }
+  for (const run of runs) {
+    if (run.runtimeTokenId && !names.has(run.runtimeTokenId)) {
+      names.set(run.runtimeTokenId, run.runtimeTokenName ?? run.runtimeTokenId);
+    }
+  }
+  return [...names.entries()].map(([id, name]) => ({ id, name }));
+}
+
 export function runServiceOptions(runs: RunLog[]): RunServiceOption[] {
   const counts = new Map<string, number>();
   const seen = new Set<string>();
@@ -351,6 +401,7 @@ export function runListPath(input: { cursor?: string; filters: RunFilters }): st
   if (input.filters.actionId) query.set("actionId", input.filters.actionId);
   if (input.filters.caller) query.set("caller", input.filters.caller);
   if (input.filters.ok !== null) query.set("ok", String(input.filters.ok));
+  if (input.filters.runtimeTokenId) query.set("runtimeTokenId", input.filters.runtimeTokenId);
   return `/api/runs?${query}`;
 }
 
@@ -362,5 +413,6 @@ export function runFiltersFromSearchParams(searchParams: URLSearchParams): RunFi
     actionId: searchParams.get("actionId")?.trim() || "",
     caller: caller === "http" || caller === "mcp" || caller === "web" ? caller : null,
     ok: ok === "true" ? true : ok === "false" ? false : null,
+    runtimeTokenId: searchParams.get("runtimeTokenId")?.trim() || null,
   };
 }

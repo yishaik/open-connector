@@ -105,6 +105,10 @@
   line-height: 1.5;
 }
 
+.run-col-key {
+  width: 140px;
+}
+
 .run-col-timing {
   width: 11%;
   min-width: 0;

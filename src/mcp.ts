@@ -5,6 +5,7 @@ import type { ActionSearchIndexProvider } from "./core/action-search.ts";
 import type { JsonSchema, ProviderDefinition } from "./core/types.ts";
 import type { IProviderLoader } from "./providers/provider-loader.ts";
 import type { ActionRunner, ActionRunResult } from "./server/actions/action-runner.ts";
+import type { RunRequestOrigin } from "./server/storage/runtime-store.ts";
 import type { RuntimeGrant } from "./server/storage/runtime-token-service.ts";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
@@ -27,6 +28,7 @@ export interface IMcpServerOptions {
   actionSearch?: ActionSearchIndexProvider;
   getPolicySnapshot?(): Promise<ActionPolicySnapshot>;
   runtimeGrant?: RuntimeGrant;
+  request?: RunRequestOrigin;
   signal?: AbortSignal;
 }
 
@@ -349,6 +351,8 @@ async function executeAction(
     connectionName,
     policy,
     runtimeTokenId: options.runtimeGrant?.tokenId,
+    runtimeTokenName: options.runtimeGrant?.tokenName,
+    request: options.request,
     signal: options.signal,
   });
   if (!run) {

@@ -44,6 +44,7 @@ const tokenPrefix = "oct_";
 
 export interface RuntimeGrant extends TokenPolicy {
   tokenId: string;
+  tokenName?: string;
 }
 
 export class RuntimeTokenService {
@@ -106,6 +107,7 @@ export class RuntimeTokenService {
     await this.recordLastUsed(matched.id);
     return {
       tokenId: matched.id,
+      tokenName: matched.name,
       allowedActions: matched.allowedActions,
       blockedActions: matched.blockedActions,
       allowedProxies: matched.allowedProxies,

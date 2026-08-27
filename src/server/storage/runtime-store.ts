@@ -8,6 +8,13 @@ export type RunLogCaller = "http" | "mcp" | "web";
 /**
  * One recent action run shown by the local runtime.
  */
+export interface RunRequestOrigin {
+  ip?: string;
+  country?: string;
+  userAgent?: string;
+  host?: string;
+}
+
 export interface RunLog {
   id: string;
   service: string;
@@ -20,6 +27,8 @@ export interface RunLog {
   connectionId?: string;
   connectionProfile?: CredentialProfile;
   runtimeTokenId?: string;
+  runtimeTokenName?: string;
+  request?: RunRequestOrigin;
   policy?: ActionPolicyDecision;
   inputSummary?: unknown;
   outputSummary?: unknown;
@@ -34,6 +43,7 @@ export interface RunLogListInput {
   actionId?: string;
   caller?: RunLogCaller;
   ok?: boolean;
+  runtimeTokenId?: string;
 }
 
 export interface RunLogPage {

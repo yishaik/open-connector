@@ -286,7 +286,7 @@ describe("ActionRunner", () => {
     const resolveConnection = vi.spyOn(ConnectionService.prototype, "resolveForExecution");
     const actionPolicy = new ActionPolicyService();
     const policy = actionPolicy.createSnapshot(undefined, {
-      allowedActions: [],
+      allowedActions: ["*"],
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: ["ungranted-connection-id"],
@@ -339,7 +339,7 @@ describe("ActionRunner", () => {
       caller: "http",
       connectionName: " work ",
       policy: actionPolicy.createSnapshot(undefined, {
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: [connection.id],
@@ -351,7 +351,7 @@ describe("ActionRunner", () => {
       caller: "mcp",
       connectionName: "work",
       policy: actionPolicy.createSnapshot(undefined, {
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: [],
@@ -363,7 +363,7 @@ describe("ActionRunner", () => {
       caller: "http",
       connectionName: "work",
       policy: actionPolicy.createSnapshot(undefined, {
-        allowedActions: [],
+        allowedActions: ["*"],
         blockedActions: [],
         allowedProxies: [],
         allowedConnections: ["another-connection-id"],
@@ -374,6 +374,47 @@ describe("ActionRunner", () => {
     expect(unrestricted?.result).toMatchObject({ ok: true });
     expect(denied?.result).toMatchObject({ ok: false, error: { code: "connection_not_allowed" } });
     expect(resolveConnection).toHaveBeenCalledTimes(2);
+  });
+
+  it("denies an action on one granted account while allowing it on another", async () => {
+    const runs = new MemoryRunLogStore();
+    const actionPolicy = new ActionPolicyService();
+    const store = new MemoryConnectionStore();
+    const ops = await store.set("example", "ops", credential);
+    const bridge = await store.set("example", "bridge", credential);
+    const runner = createRunner({
+      runs,
+      logger: createTestLogger().logger,
+      actionPolicy,
+      provider: authenticatedProvider,
+      store,
+    });
+
+    const policy = actionPolicy.createSnapshot(undefined, {
+      allowedActions: [`example.echo@${ops.id}`],
+      blockedActions: [],
+      allowedProxies: [],
+      allowedConnections: [ops.id, bridge.id],
+    });
+    const opsRun = await runner.run({
+      actionId: "example.echo",
+      input: {},
+      caller: "http",
+      connectionName: "ops",
+      policy,
+      runtimeTokenId: "token-1",
+    });
+    const bridgeRun = await runner.run({
+      actionId: "example.echo",
+      input: {},
+      caller: "http",
+      connectionName: "bridge",
+      policy,
+      runtimeTokenId: "token-1",
+    });
+
+    expect(opsRun?.result).toMatchObject({ ok: true });
+    expect(bridgeRun?.result).toMatchObject({ ok: false, error: { code: "action_not_allowed" } });
   });
 });
 

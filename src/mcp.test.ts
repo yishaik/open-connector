@@ -511,7 +511,7 @@ describe("MCP server", () => {
 
   it("enforces token connection scope on execute_action and filters connection identity", async () => {
     const policy = new ActionPolicyService().createSnapshot(emptyPolicyRules(), {
-      allowedActions: [],
+      allowedActions: ["*"],
       blockedActions: [],
       allowedProxies: [],
       allowedConnections: ["connection-secondary", "connection-ghost"],
