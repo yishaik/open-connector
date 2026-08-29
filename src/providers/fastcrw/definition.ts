@@ -30,7 +30,7 @@ export const provider: ProviderDefinition = {
           secret: false,
           placeholder: "https://api.fastcrw.com",
           description:
-            "The HTTP or HTTPS API base URL. Defaults to https://api.fastcrw.com for hosted usage. Use a custom URL for self-hosted instances.",
+            "The HTTP or HTTPS API base URL. Defaults to https://api.fastcrw.com for hosted usage. Self-hosted instances (Docker Compose, LAN) require the deployment to enable OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK; reserved, loopback, link-local, and cloud-metadata targets always remain blocked.",
         },
       ],
     },

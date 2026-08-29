@@ -1,94 +1,119 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
-import type { ApiKeyProviderContext, ProviderActionHandlers } from "../provider-runtime.ts";
+import type {
+  CredentialValidationResult,
+  CredentialValidators,
+  ExecutionContext,
+  ProviderExecutors,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { assertPublicHttpUrl, isPrivateNetworkAccessAllowed } from "../../core/request.ts";
+import {
+  createProviderFetch,
+  defineProviderExecutors,
+  providerUserAgent,
+  ProviderRequestError,
+  requireApiKeyCredential,
+} from "../provider-runtime.ts";
 
 const service = "fastcrw";
 const defaultApiBaseUrl = "https://api.fastcrw.com";
 
 type FastcrwRequestPhase = "validate" | "execute";
 
-interface FastcrwActionContext extends ApiKeyProviderContext {
+export interface FastcrwActionContext {
+  apiKey: string;
   apiBaseUrl: string;
+  fetcher: typeof fetch;
+  signal?: AbortSignal;
 }
 
 type FastcrwActionHandler = (input: Record<string, unknown>, context: FastcrwActionContext) => Promise<unknown>;
 
 export const fastcrwActionHandlers: ProviderActionHandlers<"fastcrw", FastcrwActionHandler> = {
-  scrape: fastcrwPostAction("/v1/scrape", buildDirectBody),
-  map: fastcrwPostAction("/v1/map", buildDirectBody),
-  search: fastcrwPostAction("/v1/search", buildDirectBody),
-  crawl: fastcrwPostAction("/v1/crawl", buildDirectBody),
+  scrape: fastcrwPostAction("/v1/scrape"),
+  map: fastcrwPostAction("/v1/map"),
+  search: fastcrwPostAction("/v1/search"),
+  crawl: fastcrwPostAction("/v1/crawl"),
   crawl_get: fastcrwGetAction((input) => `/v1/crawl/${encodePathSegment(input.id)}`),
-  batch_scrape: fastcrwPostAction("/v1/batch/scrape", buildDirectBody),
+  batch_scrape: fastcrwPostAction("/v1/batch/scrape"),
   batch_scrape_get: fastcrwGetAction((input) => `/v1/batch/scrape/${encodePathSegment(input.id)}`),
   batch_scrape_cancel: fastcrwDeleteAction((input) => `/v1/batch/scrape/${encodePathSegment(input.id)}`),
-  extract: fastcrwPostAction("/v1/extract", buildDirectBody),
+  extract: fastcrwPostAction("/v1/extract"),
   extract_get: fastcrwGetAction((input) => `/v1/extract/${encodePathSegment(input.id)}`),
   extract_cancel: fastcrwDeleteAction((input) => `/v1/extract/${encodePathSegment(input.id)}`),
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, {
-  scrape: wrapHandler(fastcrwActionHandlers.scrape),
-  map: wrapHandler(fastcrwActionHandlers.map),
-  search: wrapHandler(fastcrwActionHandlers.search),
-  crawl: wrapHandler(fastcrwActionHandlers.crawl),
-  crawl_get: wrapHandler(fastcrwActionHandlers.crawl_get),
-  batch_scrape: wrapHandler(fastcrwActionHandlers.batch_scrape),
-  batch_scrape_get: wrapHandler(fastcrwActionHandlers.batch_scrape_get),
-  batch_scrape_cancel: wrapHandler(fastcrwActionHandlers.batch_scrape_cancel),
-  extract: wrapHandler(fastcrwActionHandlers.extract),
-  extract_get: wrapHandler(fastcrwActionHandlers.extract_get),
-  extract_cancel: wrapHandler(fastcrwActionHandlers.extract_cancel),
-});
-
-export const credentialValidators: CredentialValidators = {
-  async apiKey(input, { fetcher, signal }) {
-    const baseUrl = normalizeFastcrwApiBaseUrl(input.values.baseUrl);
-    const payload = optionalRecord(
-      await fastcrwRequest({
-        apiKey: input.apiKey,
-        apiBaseUrl: baseUrl,
-        fetcher,
-        signal,
-        path: "/v1/capabilities",
-        method: "GET",
-        phase: "validate",
-      }),
-    );
-
-    const host = new URL(baseUrl).host;
-    return {
-      profile: {
-        accountId: `fastcrw:${host}`,
-        displayName: `fastCRW ${host}`,
-      },
-      grantedScopes: [],
-      metadata: compactObject({
-        apiBaseUrl: baseUrl,
-        validationEndpoint: "/v1/capabilities",
-        version: optionalString(payload?.version),
-        success: true,
-      }),
-    };
-  },
-};
-
-function wrapHandler(
-  handler: FastcrwActionHandler,
-): (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown> {
-  return async (input, context) => {
-    const baseUrl = normalizeFastcrwApiBaseUrl(input.baseUrl ?? defaultApiBaseUrl);
-    return handler(input, { ...context, apiBaseUrl: baseUrl });
+export function createFastcrwContext(
+  values: Record<string, string>,
+  metadata: Record<string, unknown>,
+  apiKey: string,
+  fetcher: typeof fetch,
+  signal?: AbortSignal,
+): FastcrwActionContext {
+  const baseUrl = optionalString(metadata.apiBaseUrl) ?? optionalString(values.baseUrl) ?? defaultApiBaseUrl;
+  return {
+    apiKey,
+    apiBaseUrl: normalizeFastcrwApiBaseUrl(baseUrl),
+    fetcher,
+    signal,
   };
 }
 
-function fastcrwPostAction(
-  path: string,
-  buildBody: (input: Record<string, unknown>) => Record<string, unknown>,
-): FastcrwActionHandler {
+export const executors: ProviderExecutors = defineProviderExecutors<FastcrwActionContext>({
+  service,
+  handlers: fastcrwActionHandlers,
+  async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<FastcrwActionContext> {
+    const credential = await requireApiKeyCredential(context, service);
+    return createFastcrwContext(credential.values, credential.metadata, credential.apiKey, fetcher, context.signal);
+  },
+  fallbackMessage: "fastCRW request failed",
+  allowPrivateNetwork: isPrivateNetworkAccessAllowed,
+});
+
+export const credentialValidators: CredentialValidators = {
+  async apiKey(input, { fetcher, signal }): Promise<CredentialValidationResult> {
+    const guardedFetcher = createProviderFetch({ fetch: fetcher, allowPrivateNetwork: isPrivateNetworkAccessAllowed });
+    return validateFastcrwCredential(input.values, input.apiKey, guardedFetcher, signal);
+  },
+};
+
+export async function validateFastcrwCredential(
+  values: Record<string, string>,
+  apiKey: string,
+  fetcher: typeof fetch,
+  signal?: AbortSignal,
+): Promise<CredentialValidationResult> {
+  const context = createFastcrwContext(values, {}, apiKey, fetcher, signal);
+  const payload = optionalRecord(
+    await fastcrwRequest({
+      apiKey: context.apiKey,
+      apiBaseUrl: context.apiBaseUrl,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/v1/capabilities",
+      method: "GET",
+      phase: "validate",
+    }),
+  );
+
+  const host = new URL(context.apiBaseUrl).host;
+  return {
+    profile: {
+      accountId: `fastcrw:${host}`,
+      displayName: `fastCRW ${host}`,
+    },
+    grantedScopes: [],
+    metadata: compactObject({
+      apiBaseUrl: context.apiBaseUrl,
+      validationEndpoint: "/v1/capabilities",
+      version: optionalString(payload?.version),
+      success: true,
+    }),
+  };
+}
+
+function fastcrwPostAction(path: string): FastcrwActionHandler {
   return (input, context) =>
     fastcrwRequest({
       apiKey: context.apiKey,
@@ -97,7 +122,7 @@ function fastcrwPostAction(
       signal: context.signal,
       method: "POST",
       path,
-      body: buildBody(input),
+      body: compactObject({ ...input }),
       phase: "execute",
     });
 }
@@ -126,12 +151,6 @@ function fastcrwDeleteAction(buildPath: (input: Record<string, unknown>) => stri
       path: buildPath(input),
       phase: "execute",
     });
-}
-
-function buildDirectBody(input: Record<string, unknown>): Record<string, unknown> {
-  const body = { ...input };
-  delete body.baseUrl;
-  return compactObject(body);
 }
 
 interface FastcrwRequestInput {
@@ -227,7 +246,19 @@ function readFastcrwErrorMessage(payload: unknown, status: number): string {
   return directError ?? `fastCRW request failed with ${status}`;
 }
 
-function normalizeFastcrwApiBaseUrl(value: unknown): string {
+/**
+ * Validates a fastCRW HTTP URL, rejects embedded credentials and unsafe targets,
+ * and removes query/hash components.
+ *
+ * Private/overlay-network targets (RFC 1918, Tailscale, NetBird, private
+ * hostnames) are only accepted when the deployment opts in through
+ * `OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK`; otherwise the shared public-only SSRF
+ * guard applies. `allowPrivateNetwork` may be passed explicitly (used by tests).
+ */
+export function normalizeFastcrwApiBaseUrl(
+  value: unknown,
+  allowPrivateNetwork: boolean = isPrivateNetworkAccessAllowed(),
+): string {
   if (value === undefined || value === null || value === "") {
     return defaultApiBaseUrl;
   }
@@ -236,7 +267,7 @@ function normalizeFastcrwApiBaseUrl(value: unknown): string {
   const url = assertPublicHttpUrl(raw, {
     fieldName: "baseUrl",
     createError: credentialError,
-    allowPrivateNetwork: false,
+    allowPrivateNetwork,
   });
 
   if (url.username || url.password) {
