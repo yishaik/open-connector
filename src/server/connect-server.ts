@@ -1125,7 +1125,9 @@ export class ConnectServer {
   }
 
   private async withTokenNames(page: RunLogPage): Promise<RunLogPage> {
-    const missing = page.items.filter((run) => run.runtimeTokenId && !run.runtimeTokenName).map((run) => run.runtimeTokenId);
+    const missing = page.items
+      .filter((run) => run.runtimeTokenId && !run.runtimeTokenName)
+      .map((run) => run.runtimeTokenId);
     if (missing.length === 0) {
       return page;
     }
@@ -1134,9 +1136,7 @@ export class ConnectServer {
     return {
       ...page,
       items: page.items.map((run) =>
-        run.runtimeTokenName || !run.runtimeTokenId
-          ? run
-          : { ...run, runtimeTokenName: names.get(run.runtimeTokenId) },
+        run.runtimeTokenName || !run.runtimeTokenId ? run : { ...run, runtimeTokenName: names.get(run.runtimeTokenId) },
       ),
     };
   }

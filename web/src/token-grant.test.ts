@@ -1,4 +1,5 @@
 import type { ActionDefinition, ConnectionRecord, ProviderDefinition } from "./model";
+
 import { describe, expect, it } from "vitest";
 import {
   actionGrantKind,
@@ -138,10 +139,7 @@ describe("token grants", () => {
       },
       catalog,
     );
-    expect(loaded.services.gmail?.accounts[gmailId]?.actionIds).toEqual([
-      "gmail.fetch_emails",
-      "gmail.create_draft",
-    ]);
+    expect(loaded.services.gmail?.accounts[gmailId]?.actionIds).toEqual(["gmail.fetch_emails", "gmail.create_draft"]);
     expect(loaded.services.gmail?.accounts[gmailId]?.allActions).toBe(false);
   });
 
