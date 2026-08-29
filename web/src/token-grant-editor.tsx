@@ -38,10 +38,7 @@ export function TokenGrantEditor(props: TokenGrantEditorProps): ReactNode {
     () => listGrantServices(props.providers, props.connections).filter((service) => service.connected),
     [props.providers, props.connections],
   );
-  const draft = useMemo(
-    () => tokenGrantDraftFromPolicy(props.policy, catalog),
-    [props.policy, catalog],
-  );
+  const draft = useMemo(() => tokenGrantDraftFromPolicy(props.policy, catalog), [props.policy, catalog]);
   const filtered = useMemo(() => filterGrantServices(catalog, query), [catalog, query]);
 
   function emit(next: TokenGrantDraft): void {
@@ -64,12 +61,7 @@ export function TokenGrantEditor(props: TokenGrantEditorProps): ReactNode {
         aria-label={t("access.grants.search")}
       />
       {filtered.map((service) => (
-        <ServiceGrant
-          key={service.service}
-          service={service}
-          draft={draft}
-          onChange={emit}
-        />
+        <ServiceGrant key={service.service} service={service} draft={draft} onChange={emit} />
       ))}
     </div>
   );
@@ -172,13 +164,18 @@ function AccountGrant(props: {
         <input
           type="checkbox"
           checked={enabled}
-          onChange={(event) => props.onChange(toggleAccount(props.draft, props.service, props.accountId, event.target.checked))}
+          onChange={(event) =>
+            props.onChange(toggleAccount(props.draft, props.service, props.accountId, event.target.checked))
+          }
         />
         <span>
           <strong>{props.accountName}</strong>
           <small>
             {enabled
-              ? t("access.grants.actionCount", { count: account?.actionIds.length ?? 0, total: props.service.actions.length })
+              ? t("access.grants.actionCount", {
+                  count: account?.actionIds.length ?? 0,
+                  total: props.service.actions.length,
+                })
               : t("access.grants.off")}
           </small>
         </span>
@@ -204,7 +201,9 @@ function AccountActions(props: {
   const t = useTranslate();
   const state = props.draft.services[props.service.service];
   const selected = new Set(
-    props.accountId ? (state?.accounts[props.accountId]?.actionIds ?? []) : Object.values(state?.accounts ?? {})[0]?.actionIds ?? [],
+    props.accountId
+      ? (state?.accounts[props.accountId]?.actionIds ?? [])
+      : (Object.values(state?.accounts ?? {})[0]?.actionIds ?? []),
   );
   const reads = props.service.actions.filter((action) => action.kind === "read");
   const writes = props.service.actions.filter((action) => action.kind === "write");
