@@ -7,9 +7,8 @@ import type {
 import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { assertPublicHttpUrl, isPrivateNetworkAccessAllowed } from "../../core/request.ts";
+import { assertPublicHttpUrl } from "../../core/request.ts";
 import {
-  createProviderFetch,
   defineProviderExecutors,
   providerUserAgent,
   ProviderRequestError,
@@ -68,13 +67,11 @@ export const executors: ProviderExecutors = defineProviderExecutors<FastcrwActio
     return createFastcrwContext(credential.values, credential.metadata, credential.apiKey, fetcher, context.signal);
   },
   fallbackMessage: "fastCRW request failed",
-  allowPrivateNetwork: isPrivateNetworkAccessAllowed,
 });
 
 export const credentialValidators: CredentialValidators = {
   async apiKey(input, { fetcher, signal }): Promise<CredentialValidationResult> {
-    const guardedFetcher = createProviderFetch({ fetch: fetcher, allowPrivateNetwork: isPrivateNetworkAccessAllowed });
-    return validateFastcrwCredential(input.values, input.apiKey, guardedFetcher, signal);
+    return validateFastcrwCredential(input.values, input.apiKey, fetcher, signal);
   },
 };
 
@@ -247,18 +244,10 @@ function readFastcrwErrorMessage(payload: unknown, status: number): string {
 }
 
 /**
- * Validates a fastCRW HTTP URL, rejects embedded credentials and unsafe targets,
- * and removes query/hash components.
- *
- * Private/overlay-network targets (RFC 1918, Tailscale, NetBird, private
- * hostnames) are only accepted when the deployment opts in through
- * `OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK`; otherwise the shared public-only SSRF
- * guard applies. `allowPrivateNetwork` may be passed explicitly (used by tests).
+ * Validates a fastCRW API base URL: must be public HTTPS, no embedded
+ * credentials, no query/hash. Defaults to https://api.fastcrw.com.
  */
-export function normalizeFastcrwApiBaseUrl(
-  value: unknown,
-  allowPrivateNetwork: boolean = isPrivateNetworkAccessAllowed(),
-): string {
+export function normalizeFastcrwApiBaseUrl(value: unknown): string {
   if (value === undefined || value === null || value === "") {
     return defaultApiBaseUrl;
   }
@@ -267,7 +256,7 @@ export function normalizeFastcrwApiBaseUrl(
   const url = assertPublicHttpUrl(raw, {
     fieldName: "baseUrl",
     createError: credentialError,
-    allowPrivateNetwork,
+    allowPrivateNetwork: false,
   });
 
   if (url.username || url.password) {

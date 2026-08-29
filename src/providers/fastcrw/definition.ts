@@ -10,8 +10,7 @@ const service = "fastcrw";
 export const provider: ProviderDefinition = {
   service,
   displayName: "fastCRW",
-  description:
-    "Firecrawl-compatible web scraping, crawling, mapping, and search API. Hosted at api.fastcrw.com or self-hosted.",
+  description: "Firecrawl-compatible web scraping, crawling, mapping, and search API hosted at api.fastcrw.com.",
   categories: ["Data", "Developer Tools"],
   authTypes: ["api_key"],
   auth: [
@@ -30,7 +29,7 @@ export const provider: ProviderDefinition = {
           secret: false,
           placeholder: "https://api.fastcrw.com",
           description:
-            "The HTTP or HTTPS API base URL. Defaults to https://api.fastcrw.com for hosted usage. Self-hosted instances (Docker Compose, LAN) require the deployment to enable OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK; reserved, loopback, link-local, and cloud-metadata targets always remain blocked.",
+            "Optional public HTTPS API base URL. Defaults to https://api.fastcrw.com. Use only for alternate hosted instances.",
         },
       ],
     },
