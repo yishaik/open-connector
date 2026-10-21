@@ -44,7 +44,9 @@
     "actions": "Действия",
     "runs": "Запуски",
     "access": "API Key",
-    "docs": "Документы"
+    "docs": "Документы",
+    "workspace": "Сервисы и инструменты",
+    "advanced": "Дополнительно"
   },
   "shell": {
     "invalidUnlockToken": "Введите действительный token администратора, чтобы разблокировать консоль.",
@@ -127,25 +129,46 @@
   "providers": {
     "catalogTitle": "Провайдеры",
     "viewLabel": "Представление провайдеров",
-    "views": { "manage": "Мои подключения", "discover": "Найти приложения" },
+    "views": {
+      "manage": "Мои подключения",
+      "discover": "Найти приложения"
+    },
     "discovery": {
       "browseByTask": "Поиск по задаче",
       "explore": "Смотреть приложения",
       "scenarios": {
-        "ai": { "title": "ИИ и агенты", "description": "Модели, агенты, поиск и генерация медиа" },
+        "ai": {
+          "title": "ИИ и агенты",
+          "description": "Модели, агенты, поиск и генерация медиа"
+        },
         "crossBorderEcommerce": {
           "title": "Операции e-commerce",
           "description": "Витрины, заказы, исполнение и рыночные данные"
         },
-        "communication": { "title": "Командная работа", "description": "Сообщения, почта, встречи и уведомления" },
-        "docs": { "title": "Документы и знания", "description": "Документы, базы знаний, диски и таблицы" },
+        "communication": {
+          "title": "Командная работа",
+          "description": "Сообщения, почта, встречи и уведомления"
+        },
+        "docs": {
+          "title": "Документы и знания",
+          "description": "Документы, базы знаний, диски и таблицы"
+        },
         "productivity": {
           "title": "Проекты и продуктивность",
           "description": "Проекты, задачи, расписания и автоматизация"
         },
-        "marketing": { "title": "Маркетинг и рост", "description": "Реклама, контент, лиды и данные роста" },
-        "dataStorage": { "title": "Данные и аналитика", "description": "Хранилища, базы данных, BI и storage" },
-        "developer": { "title": "Разработка и облако", "description": "Код, деплой, облачные сервисы и наблюдаемость" }
+        "marketing": {
+          "title": "Маркетинг и рост",
+          "description": "Реклама, контент, лиды и данные роста"
+        },
+        "dataStorage": {
+          "title": "Данные и аналитика",
+          "description": "Хранилища, базы данных, BI и storage"
+        },
+        "developer": {
+          "title": "Разработка и облако",
+          "description": "Код, деплой, облачные сервисы и наблюдаемость"
+        }
       }
     },
     "brandNotice": "Названия, логотипы и товарные знаки третьих лиц принадлежат их соответствующим владельцам и отображаются только для идентификации провайдеров. Проект не претендует на права на них. Пользователи, распространяющие или коммерциализирующие проект, обязаны самостоятельно изучить применимые правила использования бренда и получить необходимые для их целей разрешения.",
@@ -566,5 +589,72 @@
       "title": "OpenAPI JSON",
       "description": "Используйте сгенерированную spec в scripts или импортерах инструментов."
     }
+  },
+  "workspace": {
+    "title": "Your services. The right tools.",
+    "subtitle": "Connect an account, then choose exactly what each app can do.",
+    "addService": "Add a service",
+    "stepConnect": "Connect a service",
+    "stepChoose": "Choose tools for an app",
+    "stepUse": "Use them in your AI chat",
+    "toolsFor": "Tools available to",
+    "chooseApp": "Choose an app",
+    "noApps": "Add an app to choose which accounts and tools it can use.",
+    "allowedSummary": "{{count}} tools allowed across connected services. Provider permissions still apply.",
+    "chooseTools": "Choose tools & accounts",
+    "addApp": "Add an app",
+    "serviceFilter": "Show services",
+    "connected": "Connected",
+    "allServices": "Find a service",
+    "searchServices": "Search Gmail, GitHub, Drive…",
+    "connectedLabel": "Connected",
+    "notConnected": "Not connected",
+    "accountsAndTools": "{{accounts}} accounts · {{tools}} tools allowed",
+    "connectToUse": "Connect an account to make its tools available.",
+    "accountNotGranted": "This app has no access to this service’s accounts.",
+    "manageAccount": "Manage accounts",
+    "connect": "Connect account",
+    "tools": "Tools",
+    "emptyTitle": "Start with one service",
+    "emptyDescription": "Find a service and connect your account. You can choose its tools afterward.",
+    "searchMore": "Search by name to find more services.",
+    "footer": "Connecting a service and granting an app access are separate steps.",
+    "advanced": "Advanced access settings",
+    "editTitle": "Tools for {{name}}",
+    "createTitle": "Give an app its own access",
+    "editorHelp": "Choose accounts and individual tools. Changes affect only this app; existing blocks remain in place.",
+    "appName": "App name",
+    "appPlaceholder": "For example, my research assistant",
+    "advancedPolicy": "This app uses wildcard rules or direct API access. View its tools here; edit its policy in advanced access settings.",
+    "selectedTools": "{{count}} of 128 tools selected",
+    "explicitOnly": "New tools are not added automatically.",
+    "accounts": "Accounts this app can use",
+    "allAccounts": "All current and future accounts",
+    "includeFutureAccounts": "Allow every account, including accounts connected later",
+    "service": "Service",
+    "searchTools": "Search tools by name or purpose",
+    "blockedPolicy": "Blocked by an existing access rule.",
+    "noTools": "No tools match. Connect a service or try another search.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save access",
+    "createKey": "Create app key",
+    "saveFailed": "Could not save access. Please try again.",
+    "keyReady": "Your app key is ready",
+    "keyHelp": "Copy this private key now. It will not be shown again. Paste it into your app’s MCP connection.",
+    "privateKey": "Private app key",
+    "copyKey": "Copy key",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the key and copy it manually.",
+    "mcpUrl": "MCP server:",
+    "done": "Done",
+    "validation": {
+      "actions": "Select at least one tool. An empty action list would allow all tools.",
+      "accounts": "Choose at least one account, or explicitly allow all accounts.",
+      "limit": "Select no more than 128 tools and 128 accounts."
+    },
+    "publicService": "No account needed",
+    "publicTools": "Public service · {{count}} tools allowed",
+    "viewService": "View service"
   }
 }

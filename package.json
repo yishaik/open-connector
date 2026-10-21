@@ -28,7 +28,9 @@
     "format": "oxfmt --check .",
     "format:fix": "oxfmt .",
     "fix": "npm run lint:fix && npm run format:fix",
-    "fix-check": "npm run fix && npm run typecheck"
+    "fix-check": "npm run fix && npm run typecheck",
+    "build:console": "npm run build --workspace web -- --base=/ui-assets/",
+    "deploy:console": "npm run build:console && wrangler deploy --config deploy/workspace/wrangler.jsonc --keep-vars"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1111.0",

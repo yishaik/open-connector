@@ -41,12 +41,14 @@ import { ResourcesPage } from "./resources-page";
 import { RunsPage } from "./runs-page";
 import { InlineError, StatusDot } from "./shared-ui";
 import { useThemeMode } from "./theme";
+import { WorkspacePage } from "./workspace-page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const navItems = [
+  { path: "/workspace", labelKey: "nav.workspace", icon: Cable },
   { path: "/overview", labelKey: "nav.overview", icon: Home },
   { path: "/providers", labelKey: "nav.providers", icon: Cable },
   { path: "/oauth-apps", labelKey: "nav.oauthApps", icon: Fingerprint },
@@ -345,19 +347,22 @@ function AppShell(props: {
         </div>
 
         <nav className="sidebar-nav" aria-label={t("shell.primaryNav")}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
-                to={item.path}
-              >
-                <Icon size={16} />
-                <span>{t(item.labelKey)}</span>
-              </NavLink>
-            );
-          })}
+          {navItems
+            .filter((item) => item.path === "/workspace" || item.path === "/runs")
+            .map((item) => (
+              <SidebarLink key={item.path} item={item} />
+            ))}
+          <details
+            className="sidebar-advanced"
+            open={Boolean(section && section !== "workspace" && section !== "runs")}
+          >
+            <summary>{t("nav.advanced")}</summary>
+            {navItems
+              .filter((item) => item.path !== "/workspace" && item.path !== "/runs")
+              .map((item) => (
+                <SidebarLink key={item.path} item={item} />
+              ))}
+          </details>
         </nav>
 
         <div className="sidebar-footer">
@@ -398,7 +403,8 @@ function AppShell(props: {
           {props.error ? <InlineError message={props.error} /> : null}
 
           <Routes>
-            <Route index element={<Navigate to="/overview" replace />} />
+            <Route index element={<Navigate to="/workspace" replace />} />
+            <Route path="/workspace" element={<WorkspacePage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/overview" element={<OverviewPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/providers" element={<ProvidersPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route
@@ -562,6 +568,7 @@ function LanguageSelect(): ReactNode {
 
 function headingForPath(pathname: string): string {
   const section = pathname.split("/").filter(Boolean)[0];
+  if (section === "workspace") return "workspace";
   if (section === "providers") {
     return "providers";
   }
@@ -581,4 +588,15 @@ function headingForPath(pathname: string): string {
     return "resources";
   }
   return "overview";
+}
+
+function SidebarLink({ item }: { item: (typeof navItems)[number] }): ReactNode {
+  const t = useTranslate();
+  const Icon = item.icon;
+  return (
+    <NavLink className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")} to={item.path}>
+      <Icon size={16} />
+      <span>{t(item.labelKey)}</span>
+    </NavLink>
+  );
 }

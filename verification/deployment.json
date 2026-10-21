@@ -1,0 +1,21 @@
+{
+  "hostname": "connect.yishaik.com",
+  "frontend_worker": "open-connector-console",
+  "backend_worker": "open-connector",
+  "backend_versions_unchanged": [
+    {
+      "version_id": "5aefb83c-010a-4f17-80ce-b2c259efdc02",
+      "percentage": 100
+    }
+  ],
+  "mcp_live_verified": true,
+  "write_restrictions_verified": true,
+  "domain_assignment_verified": true,
+  "frontend_versions": [
+    {
+      "version_id": "ccb8ffa0-e676-45b5-a9d7-ffb037e62370",
+      "percentage": 100
+    }
+  ],
+  "backend_version_still_unchanged": true
+}

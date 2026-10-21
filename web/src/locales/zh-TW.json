@@ -44,7 +44,9 @@
     "actions": "動作",
     "runs": "執行記錄",
     "access": "API 金鑰",
-    "docs": "文件"
+    "docs": "文件",
+    "workspace": "服務與工具",
+    "advanced": "進階設定"
   },
   "shell": {
     "invalidUnlockToken": "請輸入有效的管理員權杖以解鎖控制台。",
@@ -127,19 +129,46 @@
   "providers": {
     "catalogTitle": "服務提供者",
     "viewLabel": "服務提供者檢視",
-    "views": { "manage": "我的連線", "discover": "探索應用程式" },
+    "views": {
+      "manage": "我的連線",
+      "discover": "探索應用程式"
+    },
     "discovery": {
       "browseByTask": "依任務瀏覽",
       "explore": "探索應用程式",
       "scenarios": {
-        "ai": { "title": "AI 與 Agent", "description": "模型、Agent、搜尋與媒體生成" },
-        "crossBorderEcommerce": { "title": "電商營運", "description": "店面、訂單、履約與市場資料" },
-        "communication": { "title": "團隊協作", "description": "訊息、電子郵件、會議與通知" },
-        "docs": { "title": "文件與知識", "description": "文件、知識庫、雲端硬碟與試算表" },
-        "productivity": { "title": "專案與效率", "description": "專案、工作、行程與自動化" },
-        "marketing": { "title": "行銷與成長", "description": "廣告、內容、潛在客戶與成長資料" },
-        "dataStorage": { "title": "資料與分析", "description": "資料倉儲、資料庫、BI 與儲存" },
-        "developer": { "title": "開發與雲端", "description": "程式碼、部署、雲端服務與可觀測性" }
+        "ai": {
+          "title": "AI 與 Agent",
+          "description": "模型、Agent、搜尋與媒體生成"
+        },
+        "crossBorderEcommerce": {
+          "title": "電商營運",
+          "description": "店面、訂單、履約與市場資料"
+        },
+        "communication": {
+          "title": "團隊協作",
+          "description": "訊息、電子郵件、會議與通知"
+        },
+        "docs": {
+          "title": "文件與知識",
+          "description": "文件、知識庫、雲端硬碟與試算表"
+        },
+        "productivity": {
+          "title": "專案與效率",
+          "description": "專案、工作、行程與自動化"
+        },
+        "marketing": {
+          "title": "行銷與成長",
+          "description": "廣告、內容、潛在客戶與成長資料"
+        },
+        "dataStorage": {
+          "title": "資料與分析",
+          "description": "資料倉儲、資料庫、BI 與儲存"
+        },
+        "developer": {
+          "title": "開發與雲端",
+          "description": "程式碼、部署、雲端服務與可觀測性"
+        }
       }
     },
     "brandNotice": "第三方名稱、標誌及商標歸其各自權利人所有，此處僅用於識別對應的服務提供者。本專案不主張擁有相關權利。再散布本專案或將其用於商業用途的使用者，應自行查閱適用的品牌規範，並依其具體用途取得所需許可。",
@@ -560,5 +589,72 @@
       "title": "OpenAPI JSON",
       "description": "在指令碼或工具匯入器中使用產生的規格。"
     }
+  },
+  "workspace": {
+    "title": "Your services. The right tools.",
+    "subtitle": "Connect an account, then choose exactly what each app can do.",
+    "addService": "Add a service",
+    "stepConnect": "Connect a service",
+    "stepChoose": "Choose tools for an app",
+    "stepUse": "Use them in your AI chat",
+    "toolsFor": "Tools available to",
+    "chooseApp": "Choose an app",
+    "noApps": "Add an app to choose which accounts and tools it can use.",
+    "allowedSummary": "{{count}} tools allowed across connected services. Provider permissions still apply.",
+    "chooseTools": "Choose tools & accounts",
+    "addApp": "Add an app",
+    "serviceFilter": "Show services",
+    "connected": "Connected",
+    "allServices": "Find a service",
+    "searchServices": "Search Gmail, GitHub, Drive…",
+    "connectedLabel": "Connected",
+    "notConnected": "Not connected",
+    "accountsAndTools": "{{accounts}} accounts · {{tools}} tools allowed",
+    "connectToUse": "Connect an account to make its tools available.",
+    "accountNotGranted": "This app has no access to this service’s accounts.",
+    "manageAccount": "Manage accounts",
+    "connect": "Connect account",
+    "tools": "Tools",
+    "emptyTitle": "Start with one service",
+    "emptyDescription": "Find a service and connect your account. You can choose its tools afterward.",
+    "searchMore": "Search by name to find more services.",
+    "footer": "Connecting a service and granting an app access are separate steps.",
+    "advanced": "Advanced access settings",
+    "editTitle": "Tools for {{name}}",
+    "createTitle": "Give an app its own access",
+    "editorHelp": "Choose accounts and individual tools. Changes affect only this app; existing blocks remain in place.",
+    "appName": "App name",
+    "appPlaceholder": "For example, my research assistant",
+    "advancedPolicy": "This app uses wildcard rules or direct API access. View its tools here; edit its policy in advanced access settings.",
+    "selectedTools": "{{count}} of 128 tools selected",
+    "explicitOnly": "New tools are not added automatically.",
+    "accounts": "Accounts this app can use",
+    "allAccounts": "All current and future accounts",
+    "includeFutureAccounts": "Allow every account, including accounts connected later",
+    "service": "Service",
+    "searchTools": "Search tools by name or purpose",
+    "blockedPolicy": "Blocked by an existing access rule.",
+    "noTools": "No tools match. Connect a service or try another search.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save access",
+    "createKey": "Create app key",
+    "saveFailed": "Could not save access. Please try again.",
+    "keyReady": "Your app key is ready",
+    "keyHelp": "Copy this private key now. It will not be shown again. Paste it into your app’s MCP connection.",
+    "privateKey": "Private app key",
+    "copyKey": "Copy key",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the key and copy it manually.",
+    "mcpUrl": "MCP server:",
+    "done": "Done",
+    "validation": {
+      "actions": "Select at least one tool. An empty action list would allow all tools.",
+      "accounts": "Choose at least one account, or explicitly allow all accounts.",
+      "limit": "Select no more than 128 tools and 128 accounts."
+    },
+    "publicService": "No account needed",
+    "publicTools": "Public service · {{count}} tools allowed",
+    "viewService": "View service"
   }
 }

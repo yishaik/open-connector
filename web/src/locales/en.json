@@ -44,7 +44,9 @@
     "actions": "Actions",
     "runs": "Runs",
     "access": "API Key",
-    "docs": "Docs"
+    "docs": "Docs",
+    "workspace": "Services & tools",
+    "advanced": "Advanced"
   },
   "shell": {
     "invalidUnlockToken": "Enter a valid admin token to unlock the console.",
@@ -127,12 +129,18 @@
   "providers": {
     "catalogTitle": "Providers",
     "viewLabel": "Provider view",
-    "views": { "manage": "My connections", "discover": "Discover apps" },
+    "views": {
+      "manage": "My connections",
+      "discover": "Discover apps"
+    },
     "discovery": {
       "browseByTask": "Browse by task",
       "explore": "Explore apps",
       "scenarios": {
-        "ai": { "title": "AI & agents", "description": "Models, agents, search, and media generation" },
+        "ai": {
+          "title": "AI & agents",
+          "description": "Models, agents, search, and media generation"
+        },
         "crossBorderEcommerce": {
           "title": "E-commerce operations",
           "description": "Storefronts, orders, fulfillment, and market data"
@@ -141,13 +149,22 @@
           "title": "Team collaboration",
           "description": "Messaging, email, meetings, and notifications"
         },
-        "docs": { "title": "Docs & knowledge", "description": "Documents, knowledge bases, drives, and spreadsheets" },
+        "docs": {
+          "title": "Docs & knowledge",
+          "description": "Documents, knowledge bases, drives, and spreadsheets"
+        },
         "productivity": {
           "title": "Projects & productivity",
           "description": "Projects, tasks, schedules, and automation"
         },
-        "marketing": { "title": "Marketing & growth", "description": "Ads, content, leads, and growth data" },
-        "dataStorage": { "title": "Data & analytics", "description": "Warehouses, databases, BI, and storage" },
+        "marketing": {
+          "title": "Marketing & growth",
+          "description": "Ads, content, leads, and growth data"
+        },
+        "dataStorage": {
+          "title": "Data & analytics",
+          "description": "Warehouses, databases, BI, and storage"
+        },
         "developer": {
           "title": "Development & cloud",
           "description": "Code, deployment, cloud services, and observability"
@@ -572,5 +589,72 @@
       "title": "OpenAPI JSON",
       "description": "Use the generated spec from scripts or tool importers."
     }
+  },
+  "workspace": {
+    "title": "Your services. The right tools.",
+    "subtitle": "Connect an account, then choose exactly what each app can do.",
+    "addService": "Add a service",
+    "stepConnect": "Connect a service",
+    "stepChoose": "Choose tools for an app",
+    "stepUse": "Use them in your AI chat",
+    "toolsFor": "Tools available to",
+    "chooseApp": "Choose an app",
+    "noApps": "Add an app to choose which accounts and tools it can use.",
+    "allowedSummary": "{{count}} tools allowed across connected services. Provider permissions still apply.",
+    "chooseTools": "Choose tools & accounts",
+    "addApp": "Add an app",
+    "serviceFilter": "Show services",
+    "connected": "Connected",
+    "allServices": "Find a service",
+    "searchServices": "Search Gmail, GitHub, Drive…",
+    "connectedLabel": "Connected",
+    "notConnected": "Not connected",
+    "accountsAndTools": "{{accounts}} accounts · {{tools}} tools allowed",
+    "connectToUse": "Connect an account to make its tools available.",
+    "accountNotGranted": "This app has no access to this service’s accounts.",
+    "manageAccount": "Manage accounts",
+    "connect": "Connect account",
+    "tools": "Tools",
+    "emptyTitle": "Start with one service",
+    "emptyDescription": "Find a service and connect your account. You can choose its tools afterward.",
+    "searchMore": "Search by name to find more services.",
+    "footer": "Connecting a service and granting an app access are separate steps.",
+    "advanced": "Advanced access settings",
+    "editTitle": "Tools for {{name}}",
+    "createTitle": "Give an app its own access",
+    "editorHelp": "Choose accounts and individual tools. Changes affect only this app; existing blocks remain in place.",
+    "appName": "App name",
+    "appPlaceholder": "For example, my research assistant",
+    "advancedPolicy": "This app uses wildcard rules or direct API access. View its tools here; edit its policy in advanced access settings.",
+    "selectedTools": "{{count}} of 128 tools selected",
+    "explicitOnly": "New tools are not added automatically.",
+    "accounts": "Accounts this app can use",
+    "allAccounts": "All current and future accounts",
+    "includeFutureAccounts": "Allow every account, including accounts connected later",
+    "service": "Service",
+    "searchTools": "Search tools by name or purpose",
+    "blockedPolicy": "Blocked by an existing access rule.",
+    "noTools": "No tools match. Connect a service or try another search.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save access",
+    "createKey": "Create app key",
+    "saveFailed": "Could not save access. Please try again.",
+    "keyReady": "Your app key is ready",
+    "keyHelp": "Copy this private key now. It will not be shown again. Paste it into your app’s MCP connection.",
+    "privateKey": "Private app key",
+    "copyKey": "Copy key",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the key and copy it manually.",
+    "mcpUrl": "MCP server:",
+    "done": "Done",
+    "validation": {
+      "actions": "Select at least one tool. An empty action list would allow all tools.",
+      "accounts": "Choose at least one account, or explicitly allow all accounts.",
+      "limit": "Select no more than 128 tools and 128 accounts."
+    },
+    "publicService": "No account needed",
+    "publicTools": "Public service · {{count}} tools allowed",
+    "viewService": "View service"
   }
 }

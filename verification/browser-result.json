@@ -1,0 +1,14 @@
+{
+  "desktop": true,
+  "mobile": true,
+  "noHorizontalOverflow": true,
+  "appSelection": true,
+  "blockedActionDisabled": true,
+  "existingBlocksAndAccountsPreserved": true,
+  "newAppExplicitGrants": true,
+  "emptyGrantsCannotSave": true,
+  "wildcardRulesCannotBeRewritten": true,
+  "connectServiceNavigation": true,
+  "realProviderCalls": false,
+  "pageErrors": []
+}
