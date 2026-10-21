@@ -26,7 +26,13 @@ interface TypecheckResult {
 await mkdir(buildInfoDir, { recursive: true });
 
 const projects = selectProjects(process.argv.slice(2));
-const results = await Promise.all(projects.map((project) => typecheckProject(project)));
+const results: TypecheckResult[] = [];
+// Small self-hosted machines can check the projects in sequence to bound memory.
+if (process.env.OOMOL_CONNECT_TYPECHECK_SERIAL === "1") {
+  for (const project of projects) results.push(await typecheckProject(project));
+} else {
+  results.push(...await Promise.all(projects.map((project) => typecheckProject(project))));
+}
 const failedResults = results.filter((result) => result.exitCode !== 0 || result.signal);
 
 for (const result of failedResults.length > 0 ? results : results.filter((result) => result.output)) {
