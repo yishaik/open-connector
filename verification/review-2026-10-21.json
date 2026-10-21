@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-21",
+  "result": "No new application bugs found within the checked scope",
+  "web_tests": 160,
+  "focused_server_tests": 134,
+  "checks": [
+    "Production frontend build",
+    "Repository lint, formatting and type checks",
+    "Desktop and three mobile browser viewports",
+    "OAuth popup and blocked-popup fallback",
+    "Missing authorization URL and OAuth completion refresh",
+    "Rejected credentials retained for retry",
+    "Failed permission save retained selection and retried",
+    "Live MCP tools and connection discovery",
+    "Two live policy-denied empty-input actions",
+    "Unauthenticated admin redirects and MCP 401"
+  ],
+  "browser_data": "Synthetic intercepted API responses and writes",
+  "live_data": "Existing Open WebUI integration; no provider writes executed",
+  "limitations": [
+    "Human Cloudflare Access login not completed",
+    "Real provider OAuth consent not completed",
+    "Physical mobile hardware not tested"
+  ],
+  "application_changes_needed": false,
+  "deployment_changed": false,
+  "frontend_version": "0cb33ee8-1b83-4ba8-bc66-6904c499fde3",
+  "backend_version": "5aefb83c-010a-4f17-80ce-b2c259efdc02"
+}

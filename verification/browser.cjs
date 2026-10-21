@@ -112,11 +112,18 @@ let tokens = [
     const connectionWrites = [];
     let oauthAttempts = 0;
     let oauthFailure = false;
+    let oauthMissingUrl = false;
+    let connectionFailure = false;
+    let grantFailure = false;
     await context.route("**/api/**", async (route) => {
       const req = route.request();
       const p = new URL(req.url()).pathname;
       let result;
       if (req.method() === "PUT" && p === "/api/connections/slack") {
+        if (connectionFailure) {
+          await route.fulfill({ status: 400, json: { message: "Example credential rejected" } });
+          return;
+        }
         const body = req.postDataJSON();
         connectionWrites.push(body);
         const record = {
@@ -136,8 +143,12 @@ let tokens = [
           await route.fulfill({ status: 400, json: { message: "Example authorization failed" } });
           return;
         }
-        result = { authorizationUrl: "https://example.test/authorize?state=test-only" };
+        result = oauthMissingUrl ? {} : { authorizationUrl: "https://example.test/authorize?state=test-only" };
       } else if (req.method() === "PUT" && p === "/api/runtime-tokens/owui") {
+        if (grantFailure) {
+          await route.fulfill({ status: 500, json: { message: "Example save failed" } });
+          return;
+        }
         const body = req.postDataJSON();
         writes.push(body);
         tokens = tokens.map((t) => (t.id === "owui" ? { ...t, ...body } : t));
@@ -303,6 +314,65 @@ let tokens = [
     assert.equal(await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).isEnabled(), true);
     assert.equal(oauthAttempts, 3);
     assert.equal(writes.length, 2);
+    // Rejected saves keep the current form and selections available for retry.
+    oauthFailure = false;
+    oauthMissingUrl = true;
+    await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).click();
+    await page.getByText("The service did not return a sign-in URL. Try again.", { exact: true }).waitFor();
+    assert.equal(await fallback.count(), 0);
+    oauthMissingUrl = false;
+    await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).click();
+    await fallback.waitFor();
+    connections.push({
+      id: "oauth-complete",
+      service: "oauth-demo",
+      connectionName: "default",
+      authType: "oauth2",
+      configured: true,
+      metadata: {},
+    });
+    // Callback completion is received even though the OAuth window has no opener.
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel("oomol-connect-oauth");
+      channel.postMessage({ type: "oauth.completed", service: "oauth-demo" });
+      channel.close();
+    });
+    await page.getByText(/Account connected. Next, choose/).waitFor();
+
+    await page.goto("http://127.0.0.1:4177/providers/slack");
+    await page.getByRole("button", { name: "Add Connection", exact: true }).click();
+    await page.getByLabel(/^Connection name/).fill("retry-account");
+    await page.getByLabel("API key", { exact: true }).fill("fixture-retry-credential");
+    connectionFailure = true;
+    await page.getByRole("button", { name: "Save Connection", exact: true }).click();
+    await page.getByText("Example credential rejected", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel(/^Connection name/).inputValue(), "retry-account");
+    assert.equal(await page.getByLabel("API key", { exact: true }).inputValue(), "fixture-retry-credential");
+    assert.equal(connectionWrites.length, 1);
+    connectionFailure = false;
+    await page.getByRole("button", { name: "Save Connection", exact: true }).click();
+    await page.getByText("retry-account", { exact: true }).waitFor();
+    assert.equal(connectionWrites.length, 2);
+
+    await page.goto("http://127.0.0.1:4177/workspace");
+    await page
+      .locator(".workspace-service")
+      .filter({ has: page.getByRole("heading", { name: "Gmail", exact: true }) })
+      .getByRole("button", { name: "Tools", exact: true })
+      .click();
+    const retryDialog = page.getByRole("dialog");
+    await retryDialog.getByRole("checkbox", { name: /Read messages/ }).check();
+    grantFailure = true;
+    await retryDialog.getByRole("button", { name: "Save access", exact: true }).click();
+    await retryDialog.getByRole("alert").filter({ hasText: "Example save failed" }).waitFor();
+    assert.equal(await retryDialog.getByRole("checkbox", { name: /Read messages/ }).isChecked(), true);
+    assert.equal(writes.length, 2);
+    grantFailure = false;
+    await retryDialog.getByRole("button", { name: "Save access", exact: true }).click();
+    await retryDialog.waitFor({ state: "hidden" });
+    assert.equal(writes.length, 3);
+    assert.deepEqual(writes[2].blockedActions, ["gmail.send"]);
+    assert.deepEqual(writes[2].allowedConnections, ["gmail-personal", "github-personal"]);
     assert.deepEqual(errors, []);
     fs.writeFileSync(
       "verification/browser-result.json",
@@ -325,6 +395,10 @@ let tokens = [
           oauthPopupAndBlockedFallback: true,
           oauthFailureCanRetry: true,
           activityShowsAppAndAccount: true,
+          missingAuthorizationUrlHandled: true,
+          oauthCompletionRefreshesAccount: true,
+          rejectedCredentialsPreservedForRetry: true,
+          failedGrantSavePreservesSelectionAndCanRetry: true,
           realProviderCalls: false,
           pageErrors: errors,
         },

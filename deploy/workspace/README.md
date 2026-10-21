@@ -92,3 +92,18 @@ Worker using the saved original domain assignment. No database restore is needed
   is protected but was not completed as the human owner by the agent.
 
 Browser evidence and nonsecret deployment results are in `verification/`.
+
+## Follow-up verification (2026-10-21)
+
+The focused server suite covers authentication, policy input, OAuth completion,
+server routes and action execution (134 tests), alongside 160 web tests.
+`node verification/browser.cjs` also checks missing authorization URLs, account
+refresh after an OAuth completion broadcast, rejected credentials with retry,
+and failed permission saves that preserve selections before a successful retry.
+These browser writes are fixtures. No real provider authorization is completed.
+
+`python3 verification/runtime-review.py` uses the existing local Open WebUI
+operations client to verify that the installed Connector key rejects two known
+blocked actions before execution, that unauthenticated admin routes redirect to
+Access, and that MCP without a key returns401. It records nonsecret results in
+`verification/runtime-review.json`; it does not execute provider writes.

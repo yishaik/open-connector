@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-21",
+  "denied_actions": {
+    "googledrive.files.delete": "action_not_allowed",
+    "googlesheets.values_update": "action_not_allowed"
+  },
+  "unauthenticated_admin_routes": {
+    "/workspace": 302,
+    "/runs": 302,
+    "/api/connections": 302
+  },
+  "mcp_without_key_status": 401,
+  "real_provider_writes_executed": false,
+  "human_cloudflare_or_oauth_login_tested": false
+}
