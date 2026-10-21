@@ -71,7 +71,7 @@ let tokens = [
     args: ["--no-sandbox"],
   });
   try {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, hasTouch: true });
     await context.route("**/ui-assets/**", (route) =>
       route.continue({ url: route.request().url().replace("/ui-assets/", "/") }),
     );
@@ -146,6 +146,65 @@ let tokens = [
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: "verification/workspace-mobile.png", fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    // Phone navigation and long permission lists use fixture data only.
+    providers[0].actions.push(
+      ...Array.from({ length: 35 }, (_, index) => ({
+        ...action("gmail", `read-${index}`),
+        name: `Read archive ${index + 1}`,
+        description: "Read archived messages with a long description that must wrap on narrow screens.",
+      })),
+    );
+    await page.reload();
+    await page.getByRole("heading", { name: "Your services. The right tools." }).waitFor();
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 390, height: 844 },
+      { width: 844, height: 390 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const menu = page.getByRole("button", { name: "Primary", exact: true });
+      await menu.click();
+      const navigation = page.getByRole("dialog");
+      if (viewport.width === 390) await page.screenshot({ path: "verification/workspace-mobile-menu.png" });
+      const themeButtons = navigation.getByRole("radio");
+      for (const radio of await themeButtons.all()) {
+        const box = await radio.boundingBox();
+        assert.ok(box.width >= 44 && box.height >= 44);
+      }
+      const navBox = await navigation.boundingBox();
+      assert.ok(navBox.x >= 0 && navBox.y >= 0);
+      await navigation.getByRole("link", { name: "Runs", exact: true }).click();
+      await navigation.waitFor({ state: "hidden" });
+      await menu.click();
+      await page.getByRole("dialog").getByRole("link", { name: "Services & tools", exact: true }).click();
+      await page.getByRole("dialog").waitFor({ state: "hidden" });
+      await menu.click();
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "hidden" });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.ok((await page.locator(".shell-header").boundingBox()).height <= 60);
+      const service = page
+        .locator(".workspace-service")
+        .filter({ has: page.getByRole("heading", { name: "Gmail", exact: true }) });
+      await service.getByRole("button", { name: "Tools", exact: true }).click();
+      const editor = page.getByRole("dialog");
+      if (viewport.width === 390) await page.screenshot({ path: "verification/workspace-mobile-tools-start.png" });
+      await editor.getByText("Read archive 35", { exact: true }).scrollIntoViewIfNeeded();
+      if (viewport.width <= 600) {
+        const save = editor.getByRole("button", { name: "Save access", exact: true });
+        const box = await save.boundingBox();
+        assert.ok(box.y >= 0 && box.y + box.height <= viewport.height);
+        assert.ok(box.height >= 44);
+        assert.equal(await editor.evaluate((element) => element.scrollWidth > element.clientWidth), false);
+        const input = editor.getByRole("textbox", { name: "Search tools by name or purpose" });
+        assert.ok(await input.evaluate((element) => parseFloat(getComputedStyle(element).fontSize) >= 16));
+        await page.screenshot({ path: `verification/workspace-mobile-tools-${viewport.width}.png` });
+      }
+      await editor.getByRole("button", { name: "Cancel", exact: true }).click();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `verification/workspace-mobile-${viewport.width}.png`, fullPage: true });
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "Add a service", exact: true }).click();
     await page.getByPlaceholder("Search Gmail, GitHub, Drive…").fill("Slack");
     await page.getByRole("link", { name: "Connect account" }).click();
@@ -158,6 +217,9 @@ let tokens = [
         {
           desktop: true,
           mobile: true,
+          mobileViewports: ["320x568", "390x844", "844x390"],
+          mobileNavigationAndEscape: true,
+          longPermissionListAndVisibleFooter: true,
           noHorizontalOverflow: true,
           appSelection: true,
           blockedActionDisabled: true,

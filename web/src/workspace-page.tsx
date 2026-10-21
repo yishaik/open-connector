@@ -373,111 +373,113 @@ function GrantEditor({ data, token, initialService, onRefresh, onClose }: GrantE
           </div>
         ) : (
           <>
-            {!token && (
-              <label className="workspace-field">
-                {t("workspace.appName")}
-                <Input
-                  placeholder={t("workspace.appPlaceholder")}
-                  value={name}
-                  maxLength={120}
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </label>
-            )}
-            {!editable && (
-              <p className="workspace-notice">
-                {t("workspace.advancedPolicy")}{" "}
-                <Link to="/access" onClick={onClose}>
-                  {t("workspace.advanced")}
-                </Link>
-              </p>
-            )}
-            {editable && (
-              <>
-                <div className="workspace-editor-summary">
-                  <strong>{t("workspace.selectedTools", { count: actions.length })}</strong>
-                  <span>{t("workspace.explicitOnly")}</span>
-                </div>
-                <details className="workspace-account-picker" open={accounts.length === 0 && accountMode !== "all"}>
-                  <summary>
-                    {t("workspace.accounts")} · {accountMode === "all" ? t("workspace.allAccounts") : accounts.length}
-                  </summary>
-                  <label className="workspace-check">
-                    <input
-                      type="checkbox"
-                      checked={accountMode === "all"}
-                      onChange={(event) => {
-                        setAccountMode(event.target.checked ? "all" : "selected");
-                      }}
-                    />
-                    {t("workspace.includeFutureAccounts")}
-                  </label>
-                  {accountMode !== "all" &&
-                    connectionOptions.map((connection) => (
-                      <label className="workspace-check" key={connection.id}>
-                        <input
-                          type="checkbox"
-                          checked={accounts.includes(connection.id!)}
-                          onChange={() => setAccounts(toggle(accounts, connection.id!))}
-                        />
-                        {data.providers.find((item) => item.service === connection.service)?.displayName ??
-                          connection.service}{" "}
-                        · {connection.connectionName ?? "default"}
-                      </label>
+            <div className="workspace-editor-body">
+              {!token && (
+                <label className="workspace-field">
+                  {t("workspace.appName")}
+                  <Input
+                    placeholder={t("workspace.appPlaceholder")}
+                    value={name}
+                    maxLength={120}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </label>
+              )}
+              {!editable && (
+                <p className="workspace-notice">
+                  {t("workspace.advancedPolicy")}{" "}
+                  <Link to="/access" onClick={onClose}>
+                    {t("workspace.advanced")}
+                  </Link>
+                </p>
+              )}
+              {editable && (
+                <>
+                  <div className="workspace-editor-summary">
+                    <strong>{t("workspace.selectedTools", { count: actions.length })}</strong>
+                    <span>{t("workspace.explicitOnly")}</span>
+                  </div>
+                  <details className="workspace-account-picker" open={accounts.length === 0 && accountMode !== "all"}>
+                    <summary>
+                      {t("workspace.accounts")} · {accountMode === "all" ? t("workspace.allAccounts") : accounts.length}
+                    </summary>
+                    <label className="workspace-check">
+                      <input
+                        type="checkbox"
+                        checked={accountMode === "all"}
+                        onChange={(event) => {
+                          setAccountMode(event.target.checked ? "all" : "selected");
+                        }}
+                      />
+                      {t("workspace.includeFutureAccounts")}
+                    </label>
+                    {accountMode !== "all" &&
+                      connectionOptions.map((connection) => (
+                        <label className="workspace-check" key={connection.id}>
+                          <input
+                            type="checkbox"
+                            checked={accounts.includes(connection.id!)}
+                            onChange={() => setAccounts(toggle(accounts, connection.id!))}
+                          />
+                          {data.providers.find((item) => item.service === connection.service)?.displayName ??
+                            connection.service}{" "}
+                          · {connection.connectionName ?? "default"}
+                        </label>
+                      ))}
+                  </details>
+                </>
+              )}
+              <div className="workspace-tool-filters">
+                <label className="workspace-field">
+                  {t("workspace.service")}
+                  <select value={service} onChange={(event) => setService(event.target.value)}>
+                    {connected.map((item) => (
+                      <option key={item.service} value={item.service}>
+                        {item.displayName}
+                      </option>
                     ))}
-                </details>
-              </>
-            )}
-            <div className="workspace-tool-filters">
-              <label className="workspace-field">
-                {t("workspace.service")}
-                <select value={service} onChange={(event) => setService(event.target.value)}>
-                  {connected.map((item) => (
-                    <option key={item.service} value={item.service}>
-                      {item.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Input
-                aria-label={t("workspace.searchTools")}
-                placeholder={t("workspace.searchTools")}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </div>
-            <div className="workspace-tool-list">
-              {visibleActions.map((action) => {
-                const baseAllowed = evaluatePolicy(action.id, "action", workspacePolicyLayers(data)).allowed;
-                const blocked =
-                  token &&
-                  !evaluatePolicy(
-                    action.id,
-                    "action",
-                    workspacePolicyLayers(data, { ...token, allowedActions: [action.id] }),
-                  ).allowed;
-                const checked = editable
-                  ? actions.includes(action.id)
-                  : policyToken
-                    ? evaluatePolicy(action.id, "action", workspacePolicyLayers(data, policyToken)).allowed
-                    : false;
-                return (
-                  <label key={action.id} className="workspace-tool">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={!editable || !baseAllowed || Boolean(blocked) || (!checked && actions.length >= 128)}
-                      onChange={() => setActions(toggle(actions, action.id))}
-                    />
-                    <div>
-                      <strong>{action.name}</strong>
-                      <p>{action.description}</p>
-                      {(!baseAllowed || blocked) && <small>{t("workspace.blockedPolicy")}</small>}
-                    </div>
-                  </label>
-                );
-              })}
-              {visibleActions.length === 0 && <p className="workspace-hint">{t("workspace.noTools")}</p>}
+                  </select>
+                </label>
+                <Input
+                  aria-label={t("workspace.searchTools")}
+                  placeholder={t("workspace.searchTools")}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </div>
+              <div className="workspace-tool-list">
+                {visibleActions.map((action) => {
+                  const baseAllowed = evaluatePolicy(action.id, "action", workspacePolicyLayers(data)).allowed;
+                  const blocked =
+                    token &&
+                    !evaluatePolicy(
+                      action.id,
+                      "action",
+                      workspacePolicyLayers(data, { ...token, allowedActions: [action.id] }),
+                    ).allowed;
+                  const checked = editable
+                    ? actions.includes(action.id)
+                    : policyToken
+                      ? evaluatePolicy(action.id, "action", workspacePolicyLayers(data, policyToken)).allowed
+                      : false;
+                  return (
+                    <label key={action.id} className="workspace-tool">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!editable || !baseAllowed || Boolean(blocked) || (!checked && actions.length >= 128)}
+                        onChange={() => setActions(toggle(actions, action.id))}
+                      />
+                      <div>
+                        <strong>{action.name}</strong>
+                        <p>{action.description}</p>
+                        {(!baseAllowed || blocked) && <small>{t("workspace.blockedPolicy")}</small>}
+                      </div>
+                    </label>
+                  );
+                })}
+                {visibleActions.length === 0 && <p className="workspace-hint">{t("workspace.noTools")}</p>}
+              </div>
             </div>
             <div className="workspace-editor-footer">
               <div>

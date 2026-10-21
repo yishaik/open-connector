@@ -21,6 +21,7 @@ import {
   KeyRound,
   Loader2,
   Monitor,
+  Menu,
   Moon,
   RefreshCw,
   Sun,
@@ -43,6 +44,7 @@ import { InlineError, StatusDot } from "./shared-ui";
 import { useThemeMode } from "./theme";
 import { WorkspacePage } from "./workspace-page";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -320,6 +322,7 @@ function AppShell(props: {
 }): ReactNode {
   const t = useTranslate();
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const heading = headingForPath(location.pathname);
   const section = location.pathname.split("/").filter(Boolean)[0];
   const isOverviewPage = heading === "overview";
@@ -335,61 +338,73 @@ function AppShell(props: {
   const currentNavItem = navItems.find((item) => item.labelKey === `nav.${heading}`) ?? navItems[0];
   const CurrentNavIcon = currentNavItem.icon;
 
+  const sidebarContent = (
+    <>
+      <div className="brand">
+        <img className="brand-mark" src={oomolConnectLogoUrl} alt="" />
+        <div>
+          <div className="brand-name">OOMOL Connect</div>
+          <div className="brand-subtitle">{t("brand.subtitle")}</div>
+        </div>
+      </div>
+
+      <nav className="sidebar-nav" aria-label={t("shell.primaryNav")}>
+        {navItems
+          .filter((item) => item.path === "/workspace" || item.path === "/runs")
+          .map((item) => (
+            <SidebarLink key={item.path} item={item} onNavigate={() => setMenuOpen(false)} />
+          ))}
+        <details className="sidebar-advanced" open={Boolean(section && section !== "workspace" && section !== "runs")}>
+          <summary>{t("nav.advanced")}</summary>
+          {navItems
+            .filter((item) => item.path !== "/workspace" && item.path !== "/runs")
+            .map((item) => (
+              <SidebarLink key={item.path} item={item} onNavigate={() => setMenuOpen(false)} />
+            ))}
+        </details>
+      </nav>
+
+      <div className="sidebar-footer">
+        <LanguageSelect />
+        <ThemeControl theme={props.theme} onThemeChange={props.onThemeChange} />
+        <div className="runtime-status">
+          <StatusDot ok={!props.error} />
+          <span>{props.error ? t("common.apiUnavailable") : t("common.runtimeReady")}</span>
+        </div>
+        <div className="button-row tight">
+          <Button variant="outline" size="icon-sm" onClick={props.onRefresh} aria-label={t("shell.refreshData")}>
+            {props.loading ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+          </Button>
+          {props.showLogout ? (
+            <Button variant="outline" size="sm" onClick={props.onLogout}>
+              {t("shell.logout")}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <img className="brand-mark" src={oomolConnectLogoUrl} alt="" />
-          <div>
-            <div className="brand-name">OOMOL Connect</div>
-            <div className="brand-subtitle">{t("brand.subtitle")}</div>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav" aria-label={t("shell.primaryNav")}>
-          {navItems
-            .filter((item) => item.path === "/workspace" || item.path === "/runs")
-            .map((item) => (
-              <SidebarLink key={item.path} item={item} />
-            ))}
-          <details
-            className="sidebar-advanced"
-            open={Boolean(section && section !== "workspace" && section !== "runs")}
-          >
-            <summary>{t("nav.advanced")}</summary>
-            {navItems
-              .filter((item) => item.path !== "/workspace" && item.path !== "/runs")
-              .map((item) => (
-                <SidebarLink key={item.path} item={item} />
-              ))}
-          </details>
-        </nav>
-
-        <div className="sidebar-footer">
-          <LanguageSelect />
-          <ThemeControl theme={props.theme} onThemeChange={props.onThemeChange} />
-          <div className="runtime-status">
-            <StatusDot ok={!props.error} />
-            <span>{props.error ? t("common.apiUnavailable") : t("common.runtimeReady")}</span>
-          </div>
-          <div className="button-row tight">
-            <Button variant="outline" size="icon-sm" onClick={props.onRefresh} aria-label={t("shell.refreshData")}>
-              {props.loading ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
-            </Button>
-            {props.showLogout ? (
-              <Button variant="outline" size="sm" onClick={props.onLogout}>
-                {t("shell.logout")}
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      </aside>
+      <aside className="sidebar">{sidebarContent}</aside>
 
       <div className={isBrowserPage ? "main-region main-region-browser" : "main-region"}>
         <header className="shell-header">
+          <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="mobile-menu-trigger" aria-label={t("shell.primaryNav")}>
+                <Menu size={22} />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="mobile-navigation" aria-describedby={undefined}>
+              <DialogTitle className="sr-only">{t("shell.primaryNav")}</DialogTitle>
+              {sidebarContent}
+            </DialogContent>
+          </Dialog>
           <div className="shell-header-title">
             <CurrentNavIcon size={16} />
-            <h1>{t(`shell.headings.${heading}.title`)}</h1>
+            <h1>{t(heading === "workspace" ? "nav.workspace" : `shell.headings.${heading}.title`)}</h1>
           </div>
           {props.loading ? (
             <div className="loading-panel page-loading">
@@ -590,11 +605,15 @@ function headingForPath(pathname: string): string {
   return "overview";
 }
 
-function SidebarLink({ item }: { item: (typeof navItems)[number] }): ReactNode {
+function SidebarLink({ item, onNavigate }: { item: (typeof navItems)[number]; onNavigate?: () => void }): ReactNode {
   const t = useTranslate();
   const Icon = item.icon;
   return (
-    <NavLink className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")} to={item.path}>
+    <NavLink
+      className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
+      to={item.path}
+      onClick={onNavigate}
+    >
       <Icon size={16} />
       <span>{t(item.labelKey)}</span>
     </NavLink>

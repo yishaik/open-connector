@@ -17,6 +17,15 @@ translated screens and translated navigation labels are preserved. Account setup
 reuses the real existing API-key/OAuth forms; OAuth app configuration is still
 required where the provider requires it.
 
+## Mobile layout
+
+Below 960px the full sidebar moves into a keyboard-accessible menu, keeping the
+page header compact. At phone widths, inputs and primary touch controls are at
+least 44px high and text inputs use 16px fonts. The tool/account editor fills the
+phone viewport with one scrolling body and a separate, always-visible action
+footer. Safe-area spacing supports devices with home indicators. Desktop layout
+and permission semantics are unchanged.
+
 ## Deployment
 
 `open-connector-console` serves only frontend routes and `/ui-assets/*`. All other
@@ -55,7 +64,8 @@ Worker using the saved original domain assignment. No database restore is needed
 - `vitest run web/src`: 158 tests, including layered permissions, empty-grant
   protection, account restrictions and gateway routing/body preservation.
 - `node verification/browser.cjs` against a local preview on port 4177: desktop
-  and mobile, service search and account-setup navigation, per-app tool selection,
+  and touch-enabled mobile viewports (320×568, 390×844, 844×390), menu navigation
+  and Escape, a long tool list with visible phone save/cancel controls, service search and account-setup navigation, per-app tool selection,
   blocked-action controls, preserving grants, explicit new-key creation and
   wildcard-policy protection. API data/writes are mocked; no real keys are created.
 - Live post-deploy: MCP metadata call through the gateway and denied empty-input
