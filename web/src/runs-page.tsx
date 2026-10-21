@@ -1,4 +1,4 @@
-import type { RunLog, RunLogPage } from "./model";
+import type { ConnectionRecord, RuntimeTokenSummary, RunLog, RunLogPage } from "./model";
 import type { ReactNode, SubmitEvent } from "react";
 
 import { useTranslate } from "@embra/i18n/react";
@@ -17,6 +17,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface RunsPageProps {
   initialRuns: RunLog[];
   nextCursor?: string;
+  runtimeTokens?: RuntimeTokenSummary[];
+  connections?: ConnectionRecord[];
 }
 
 interface RunServiceOption {
@@ -175,6 +177,7 @@ export function RunsPage(props: RunsPageProps): ReactNode {
           </RunSelect>
         </section>
 
+        <p className="runs-attribution-note">{t("runs.attributionHelp")}</p>
         <section className="table-panel">
           {runs.length === 0 ? (
             <EmptyState title={t("runs.noRunsTitle")} description={t("runs.noRunsDescription")} icon={null} />
@@ -198,19 +201,19 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                   const policyCheck = run.policy?.checks.at(-1);
                   return (
                     <Fragment key={run.id}>
-                      <TableRow>
-                        <TableCell className="run-col-timing">
+                      <TableRow className="run-entry">
+                        <TableCell className="run-col-timing" data-label={t("runs.table.timing")}>
                           <div className="run-primary">{formatDate(run.startedAt)}</div>
                           <div className="run-secondary">{formatDuration(run)}</div>
                         </TableCell>
-                        <TableCell className="run-col-status">
+                        <TableCell className="run-col-status" data-label={t("runs.table.status")}>
                           {run.ok ? (
                             <Badge tone="success">{t("common.success")}</Badge>
                           ) : (
                             <Badge tone="error">{t("common.failed")}</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="run-col-action">
+                        <TableCell className="run-col-action" data-label={t("runs.table.action")}>
                           <div className="run-primary mono">{run.actionId}</div>
                           <div className="run-secondary mono">
                             <span>{run.id}</span>
@@ -229,10 +232,23 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                             </Tooltip>
                           </div>
                         </TableCell>
-                        <TableCell className="run-col-context">
-                          <div className="run-primary mono">{run.caller}</div>
+                        <TableCell className="run-col-context" data-label={t("runs.table.context")}>
+                          <div className="run-primary run-actor">
+                            {run.runtimeTokenId
+                              ? (props.runtimeTokens?.find((token) => token.id === run.runtimeTokenId)?.name ??
+                                t("runs.unknownApp"))
+                              : t(run.caller === "web" ? "runs.webConsole" : "runs.unattributed")}
+                          </div>
                           <div className="run-secondary">
-                            {run.connectionProfile?.displayName ?? run.connectionId ?? "-"}
+                            {t("runs.via")}: {run.caller}
+                          </div>
+                          <div className="run-secondary">
+                            {t("runs.account")}:{" "}
+                            {run.connectionProfile?.displayName ??
+                              props.connections?.find((connection) => connection.id === run.connectionId)
+                                ?.connectionName ??
+                              run.connectionId ??
+                              t("runs.accountNotRecorded")}
                           </div>
                           {run.policy ? (
                             <div className="run-secondary mono">
@@ -248,10 +264,10 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                             </div>
                           ) : null}
                         </TableCell>
-                        <TableCell className="mono run-summary run-col-summary">
+                        <TableCell className="mono run-summary run-col-summary" data-label={t("runs.table.input")}>
                           {compactJson(run.inputSummary)}
                         </TableCell>
-                        <TableCell className="mono run-summary run-col-summary">
+                        <TableCell className="mono run-summary run-col-summary" data-label={t("runs.table.result")}>
                           {run.ok ? (
                             <div className="run-result">
                               <pre>{output}</pre>

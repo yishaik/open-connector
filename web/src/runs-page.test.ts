@@ -113,6 +113,54 @@ describe("RunsPage", () => {
     expect(markup).toContain("The provider rate limit was reached.");
   });
 
+  it("resolves app identity and account without exposing a raw key", () => {
+    const auditRun = { ...run("named-app", "gmail.read", "gmail"), runtimeTokenId: "app-1", connectionId: "account-1" };
+    const markup = renderToStaticMarkup(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(RunsPage, {
+          initialRuns: [auditRun],
+          runtimeTokens: [
+            {
+              id: "app-1",
+              name: "Open WebUI",
+              allowedActions: [],
+              blockedActions: [],
+              allowedProxies: [],
+              allowedConnections: [],
+              createdAt: "2026-10-21",
+            },
+          ],
+          connections: [
+            { id: "account-1", service: "gmail", connectionName: "Work inbox", authType: "oauth2", metadata: {} },
+          ],
+        }),
+      ),
+    );
+    expect(markup).toContain("Open WebUI");
+    expect(markup).toContain("Work inbox");
+    expect(markup).toContain("runs.via");
+  });
+
+  it("does not invent an identity for missing or revoked keys", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(RunsPage, {
+          initialRuns: [
+            run("legacy", "gmail.read", "gmail"),
+            { ...run("revoked", "gmail.read", "gmail"), runtimeTokenId: "gone" },
+          ],
+          runtimeTokens: [],
+        }),
+      ),
+    );
+    expect(markup).toContain("runs.unattributed");
+    expect(markup).toContain("runs.unknownApp");
+  });
+
   it("renders policy and stored token context without adding a table column", () => {
     const auditRun: RunLog = {
       ...run("execution-policy", "github.delete_repository", "github"),

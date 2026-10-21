@@ -265,7 +265,10 @@
       "failed": "连接失败。",
       "disconnecting": "正在断开连接...",
       "disconnected": "已断开连接。",
-      "disconnectFailed": "断开连接失败。"
+      "disconnectFailed": "断开连接失败。",
+      "missingAuthorizationUrl": "The service did not return a sign-in URL. Try again.",
+      "continueOAuthHelp": "Complete sign-in in the opened window. If no window appeared, use Continue sign-in below.",
+      "chooseAppAccess": "Account connected. Next, choose which app can use its tools in Services & tools."
     },
     "buttons": {
       "configureOAuthClient": "配置默认 App",
@@ -283,7 +286,8 @@
       "disconnect": "断开连接",
       "saveOAuthClient": "保存默认 App",
       "updateOAuthClient": "更新默认 App",
-      "resetOAuthClient": "重置默认 App"
+      "resetOAuthClient": "重置默认 App",
+      "continueOAuth": "Continue sign-in"
     },
     "oauthClientSettings": {
       "setupTitle": "创建 OAuth 应用",
@@ -388,7 +392,14 @@
       "timing": "时间",
       "input": "输入",
       "result": "结果"
-    }
+    },
+    "attributionHelp": "Activity identifies the app key, not an individual person. Shared keys share one identity; older entries may have no app recorded.",
+    "unknownApp": "Unknown or removed app",
+    "webConsole": "Web console",
+    "unattributed": "App not recorded",
+    "via": "Via",
+    "account": "Account",
+    "accountNotRecorded": "Not recorded"
   },
   "access": {
     "title": "运行时 Token",
@@ -655,6 +666,11 @@
     },
     "publicService": "No account needed",
     "publicTools": "Public service · {{count}} tools allowed",
-    "viewService": "View service"
+    "viewService": "View service",
+    "unavailable": "Not enabled on this server",
+    "setupRequired": "Setup required",
+    "unavailableHelp": "This service is in the catalog, but its tools are not enabled on this server.",
+    "oauthSetupHelp": "Register an OAuth app with this service first, then sign in to connect your account.",
+    "setupConnection": "Set up connection"
   }
 }

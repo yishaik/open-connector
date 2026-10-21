@@ -265,7 +265,10 @@
       "failed": "Connection failed.",
       "disconnecting": "Disconnecting...",
       "disconnected": "Disconnected.",
-      "disconnectFailed": "Disconnect failed."
+      "disconnectFailed": "Disconnect failed.",
+      "missingAuthorizationUrl": "The service did not return a sign-in URL. Try again.",
+      "continueOAuthHelp": "Complete sign-in in the opened window. If no window appeared, use Continue sign-in below.",
+      "chooseAppAccess": "Account connected. Next, choose which app can use its tools in Services & tools."
     },
     "buttons": {
       "configureOAuthClient": "Configure Default App",
@@ -283,7 +286,8 @@
       "disconnect": "Disconnect",
       "saveOAuthClient": "Save Default App",
       "updateOAuthClient": "Update Default App",
-      "resetOAuthClient": "Reset Default App"
+      "resetOAuthClient": "Reset Default App",
+      "continueOAuth": "Continue sign-in"
     },
     "oauthClientSettings": {
       "setupTitle": "Create the OAuth app",
@@ -383,12 +387,19 @@
     "runtimeToken": "runtime token",
     "table": {
       "action": "Action",
-      "context": "Context",
+      "context": "App & account",
       "status": "Status",
       "timing": "Timing",
       "input": "Input",
       "result": "Result"
-    }
+    },
+    "attributionHelp": "Activity identifies the app key, not an individual person. Shared keys share one identity; older entries may have no app recorded.",
+    "unknownApp": "Unknown or removed app",
+    "webConsole": "Web console",
+    "unattributed": "App not recorded",
+    "via": "Via",
+    "account": "Account",
+    "accountNotRecorded": "Not recorded"
   },
   "access": {
     "title": "Runtime Tokens",
@@ -655,6 +666,11 @@
     },
     "publicService": "No account needed",
     "publicTools": "Public service · {{count}} tools allowed",
-    "viewService": "View service"
+    "viewService": "View service",
+    "unavailable": "Not enabled on this server",
+    "setupRequired": "Setup required",
+    "unavailableHelp": "This service is in the catalog, but its tools are not enabled on this server.",
+    "oauthSetupHelp": "Register an OAuth app with this service first, then sign in to connect your account.",
+    "setupConnection": "Set up connection"
   }
 }

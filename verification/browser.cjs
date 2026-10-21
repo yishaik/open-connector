@@ -24,6 +24,36 @@ const providers = ["gmail", "github", "slack"].map((service) => ({
   auth: [{ type: "api_key" }],
   actions: [action(service, "read"), action(service, "send")],
 }));
+providers.push({
+  service: "oauth-demo",
+  displayName: "OAuth demo",
+  description: "Test service",
+  categories: [],
+  authTypes: ["oauth2"],
+  auth: [{ type: "oauth2", scopes: [] }],
+  actions: [
+    {
+      ...action("oauth-demo", "read"),
+      execution: { ...action("oauth-demo", "read").execution, requiredAuthTypes: ["oauth2"] },
+    },
+  ],
+});
+const auditRuns = [
+  {
+    id: "audit-demo",
+    service: "gmail",
+    actionId: "gmail.read",
+    caller: "mcp",
+    runtimeTokenId: "owui",
+    connectionId: "gmail-personal",
+    startedAt: "2026-10-21T10:00:00Z",
+    completedAt: "2026-10-21T10:00:01Z",
+    durationMs: 1000,
+    ok: true,
+    inputSummary: {},
+    outputSummary: { count: 1 },
+  },
+];
 const connections = [
   {
     id: "gmail-personal",
@@ -79,11 +109,35 @@ let tokens = [
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     let writes = [];
+    const connectionWrites = [];
+    let oauthAttempts = 0;
+    let oauthFailure = false;
     await context.route("**/api/**", async (route) => {
       const req = route.request();
       const p = new URL(req.url()).pathname;
       let result;
-      if (req.method() === "PUT" && p === "/api/runtime-tokens/owui") {
+      if (req.method() === "PUT" && p === "/api/connections/slack") {
+        const body = req.postDataJSON();
+        connectionWrites.push(body);
+        const record = {
+          id: "slack-new",
+          service: "slack",
+          connectionName: body.connectionName,
+          authType: body.authType,
+          configured: true,
+          metadata: {},
+        };
+        connections.push(record);
+        result = record;
+      } else if (req.method() === "POST" && p === "/api/oauth/authorizations") {
+        oauthAttempts++;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (oauthFailure) {
+          await route.fulfill({ status: 400, json: { message: "Example authorization failed" } });
+          return;
+        }
+        result = { authorizationUrl: "https://example.test/authorize?state=test-only" };
+      } else if (req.method() === "PUT" && p === "/api/runtime-tokens/owui") {
         const body = req.postDataJSON();
         writes.push(body);
         tokens = tokens.map((t) => (t.id === "owui" ? { ...t, ...body } : t));
@@ -99,10 +153,12 @@ let tokens = [
           "/api/auth/session": { authenticated: true, adminAuthConfigured: true },
           "/api/providers": providers,
           "/api/connections": connections,
-          "/api/oauth/configs": [],
+          "/api/oauth/configs": [
+            { service: "oauth-demo", configured: true, clientId: "fixture-client", customClientAvailable: true },
+          ],
           "/api/runtime-tokens": tokens,
           "/api/runtime-policy": { deployment: rules, runtime: rules },
-          "/api/runs": { items: [] },
+          "/api/runs": { items: auditRuns },
         }[p];
       if (result === undefined) throw new Error(`Unexpected API call ${req.method()} ${p}`);
       await route.fulfill({ json: result });
@@ -209,6 +265,43 @@ let tokens = [
     await page.getByPlaceholder("Search Gmail, GitHub, Drive…").fill("Slack");
     await page.getByRole("link", { name: "Connect account" }).click();
     await page.getByRole("heading", { name: "Slack", exact: true }).waitFor();
+    await page.getByLabel("API key", { exact: true }).fill("fixture-only-not-a-real-key");
+    await page.getByRole("button", { name: "Save Connection", exact: true }).click();
+    await page.getByText(/Account connected. Next, choose/).waitFor();
+    assert.equal(connectionWrites.length, 1);
+    assert.equal(connectionWrites[0].connectionName, "default");
+    assert.equal(connectionWrites[0].authType, "api_key");
+    await page.goto("http://127.0.0.1:4177/runs");
+    await page.locator(".run-actor", { hasText: "open-webui-readonly" }).waitFor();
+    assert.match(await page.locator(".run-col-context").last().innerText(), /personal/);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.screenshot({ path: "verification/activity-mobile.png", fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: "verification/activity-desktop.png", fullPage: true });
+    await context.route("https://example.test/**", (route) => route.fulfill({ body: "Fixture authorization page" }));
+    await page.goto("http://127.0.0.1:4177/providers/oauth-demo");
+    const popupPromise = context.waitForEvent("page");
+    await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).click();
+    const popup = await popupPromise;
+    await popup.waitForURL("https://example.test/**");
+    await popup.close();
+    await page.reload();
+    await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).waitFor();
+    await page.evaluate(() => {
+      window.open = () => null;
+    });
+    await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).click();
+    const fallback = page.getByRole("link", { name: "Continue sign-in" });
+    await fallback.waitFor();
+    assert.match(await fallback.getAttribute("href"), /^https:\/\/example.test\/authorize/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: "verification/connect-oauth-fallback.png", fullPage: true });
+    oauthFailure = true;
+    await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).click();
+    await page.getByText("Example authorization failed", { exact: true }).waitFor();
+    assert.equal(await fallback.count(), 0);
+    assert.equal(await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).isEnabled(), true);
+    assert.equal(oauthAttempts, 3);
     assert.equal(writes.length, 2);
     assert.deepEqual(errors, []);
     fs.writeFileSync(
@@ -228,6 +321,10 @@ let tokens = [
           emptyGrantsCannotSave: true,
           wildcardRulesCannotBeRewritten: true,
           connectServiceNavigation: true,
+          connectionSaved: true,
+          oauthPopupAndBlockedFallback: true,
+          oauthFailureCanRetry: true,
+          activityShowsAppAndAccount: true,
           realProviderCalls: false,
           pageErrors: errors,
         },

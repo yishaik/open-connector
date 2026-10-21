@@ -918,6 +918,14 @@ function ProviderDetail(props: ProviderDetailProps): ReactNode {
 
       <div className="provider-detail-layout">
         <section className="detail-panel provider-detail-card provider-connection-card">
+          {props.connections.length > 0 ? (
+            <Alert variant="success">
+              <CheckCircle2 size={16} />
+              <AlertDescription>
+                {t("providers.connectionMessages.chooseAppAccess")} <Link to="/workspace">{t("nav.workspace")}</Link>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <div className="provider-panel-title-row">
             <div>
               <h3>{t("providers.connection")}</h3>
@@ -1110,8 +1118,6 @@ export function createOAuthPopupFeatures(placement: OAuthPopupPlacement): string
     `top=${top}`,
     "resizable=yes",
     "scrollbars=yes",
-    "noopener",
-    "noreferrer",
   ].join(",");
 }
 
@@ -1350,6 +1356,8 @@ function UnavailableProviderConnection(props: {
 
 function ConnectionForm(props: ConnectionFormProps): ReactNode {
   const t = useTranslate();
+  const [authorizationUrl, setAuthorizationUrl] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [manualClientId, setManualClientId] = useState("");
   const [manualClientSecret, setManualClientSecret] = useState("");
@@ -1409,6 +1417,7 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
 
   async function submit(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (submitting) return;
     if (!canSubmit) {
       if (needsOAuthClient) {
         setStatus(t("providers.connectionMessages.configureOAuthFirst"));
@@ -1416,6 +1425,30 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
       return;
     }
 
+    // Reserve the window during the click, before awaiting the authorization API.
+    // Mobile browsers may reject window.open after the user gesture has ended.
+    const oauthWindow =
+      props.auth.type === "oauth2"
+        ? window.open(
+            "about:blank",
+            "_blank",
+            createOAuthPopupFeatures({
+              screenX: window.screenX,
+              screenY: window.screenY,
+              outerWidth: window.outerWidth,
+              outerHeight: window.outerHeight,
+            }),
+          )
+        : null;
+    if (oauthWindow) {
+      oauthWindow.opener = null;
+      const referrerPolicy = oauthWindow.document.createElement("meta");
+      referrerPolicy.name = "referrer";
+      referrerPolicy.content = "no-referrer";
+      oauthWindow.document.head.append(referrerPolicy);
+    }
+    setSubmitting(true);
+    setAuthorizationUrl(undefined);
     const connectionName = props.connectionName.trim();
     setStatus(
       props.auth.type === "oauth2"
@@ -1448,28 +1481,24 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
             props.oauthClientMode === "manual" ? { auth: props.auth, values: manualValues } : undefined,
           ),
         );
-        if (result.authorizationUrl) {
-          window.open(
-            result.authorizationUrl,
-            "oomol_connect_oauth",
-            createOAuthPopupFeatures({
-              screenX: window.screenX,
-              screenY: window.screenY,
-              outerWidth: window.outerWidth,
-              outerHeight: window.outerHeight,
-            }),
-          );
-          stopOAuthRefreshPolling.current?.();
-          stopOAuthRefreshPolling.current = startOAuthRefreshPolling(props.onRefresh);
+        if (!result.authorizationUrl || !/^https?:\/\//i.test(result.authorizationUrl)) {
+          throw new Error(t("providers.connectionMessages.missingAuthorizationUrl"));
         }
-        setStatus(t("providers.connectionMessages.oauthWindowOpened"));
+        setAuthorizationUrl(result.authorizationUrl);
+        if (oauthWindow && !oauthWindow.closed) oauthWindow.location.replace(result.authorizationUrl);
+        stopOAuthRefreshPolling.current?.();
+        stopOAuthRefreshPolling.current = startOAuthRefreshPolling(props.onRefresh);
+        setStatus(t("providers.connectionMessages.continueOAuthHelp"));
         return;
       }
       setStatus(t("providers.connectionMessages.updated"));
       props.onRefresh();
     } catch (error) {
+      oauthWindow?.close();
       props.onConnectionPendingChange?.(undefined);
       setStatus(error instanceof Error ? error.message : t("providers.connectionMessages.failed"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -1587,7 +1616,7 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
             </Button>
           ) : (
             <>
-              <Button type="submit" disabled={!canSubmit}>
+              <Button type="submit" disabled={!canSubmit || submitting}>
                 {props.auth.type === "oauth2" ? <ExternalLink size={16} /> : <Check size={16} />}
                 {submitLabel}
               </Button>
@@ -1606,6 +1635,13 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
             </Button>
           ) : null}
         </div>
+      ) : null}
+      {authorizationUrl ? (
+        <Button variant="outline" asChild>
+          <a href={authorizationUrl} target="_blank" rel="noopener noreferrer">
+            {t("providers.buttons.continueOAuth")} <ExternalLink size={16} />
+          </a>
+        </Button>
       ) : null}
       {status ? <FormStatus message={status} /> : null}
     </form>

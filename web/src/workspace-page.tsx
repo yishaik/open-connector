@@ -8,6 +8,7 @@ import { Link } from "react-router";
 import { apiPost, apiPut } from "./api";
 import { isNoAuthOnlyProvider, usableConnectionsForService } from "./model";
 import { evaluatePolicy } from "./policy";
+import { isProviderLocallyAvailable } from "./providers-page";
 import { ProviderIcon } from "./shared-ui";
 import {
   allowedToolCount,
@@ -173,6 +174,11 @@ export function WorkspacePage({ data, onRefresh }: WorkspacePageProps): ReactNod
           const accounts = usableConnectionsForService(data.connections, provider.service);
           const count = token ? allowedToolCount(provider, data, token) : 0;
           const publicService = isNoAuthOnlyProvider(provider);
+          const available = isProviderLocallyAvailable(provider);
+          const needsOAuthSetup =
+            provider.authTypes.length > 0 &&
+            provider.authTypes.every((type) => type === "oauth2") &&
+            !data.oauthConfigs.some((config) => config.service === provider.service && config.configured);
           const ready = accounts.length > 0 || publicService;
           return (
             <article className="workspace-service" key={provider.service}>
@@ -180,11 +186,15 @@ export function WorkspacePage({ data, onRefresh }: WorkspacePageProps): ReactNod
                 <ProviderIcon provider={provider} />
                 <span className={accounts.length ? "workspace-status connected" : "workspace-status"}>
                   {t(
-                    publicService
-                      ? "workspace.publicService"
-                      : accounts.length
-                        ? "workspace.connectedLabel"
-                        : "workspace.notConnected",
+                    !available
+                      ? "workspace.unavailable"
+                      : needsOAuthSetup && !accounts.length
+                        ? "workspace.setupRequired"
+                        : publicService
+                          ? "workspace.publicService"
+                          : accounts.length
+                            ? "workspace.connectedLabel"
+                            : "workspace.notConnected",
                   )}
                 </span>
               </div>
@@ -200,15 +210,24 @@ export function WorkspacePage({ data, onRefresh }: WorkspacePageProps): ReactNod
               {accounts.length && token && permittedAccounts(provider, data, token).length === 0 ? (
                 <p className="workspace-explanation">{t("workspace.accountNotGranted")}</p>
               ) : null}
+              {!available || (needsOAuthSetup && !accounts.length) ? (
+                <p className="workspace-explanation">
+                  {t(!available ? "workspace.unavailableHelp" : "workspace.oauthSetupHelp")}
+                </p>
+              ) : null}
               <div className="workspace-card-actions">
                 <Button variant="outline" asChild>
                   <Link to={`/providers/${encodeURIComponent(provider.service)}`}>
                     {t(
-                      publicService
+                      !available
                         ? "workspace.viewService"
-                        : accounts.length
-                          ? "workspace.manageAccount"
-                          : "workspace.connect",
+                        : needsOAuthSetup && !accounts.length
+                          ? "workspace.setupConnection"
+                          : publicService
+                            ? "workspace.viewService"
+                            : accounts.length
+                              ? "workspace.manageAccount"
+                              : "workspace.connect",
                     )}
                     <ArrowRight size={14} />
                   </Link>

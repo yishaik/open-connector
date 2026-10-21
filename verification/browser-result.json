@@ -16,6 +16,10 @@
   "emptyGrantsCannotSave": true,
   "wildcardRulesCannotBeRewritten": true,
   "connectServiceNavigation": true,
+  "connectionSaved": true,
+  "oauthPopupAndBlockedFallback": true,
+  "oauthFailureCanRetry": true,
+  "activityShowsAppAndAccount": true,
   "realProviderCalls": false,
   "pageErrors": []
 }

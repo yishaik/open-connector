@@ -17,6 +17,22 @@ translated screens and translated navigation labels are preserved. Account setup
 reuses the real existing API-key/OAuth forms; OAuth app configuration is still
 required where the provider requires it.
 
+## Connection setup and activity attribution
+
+OAuth reserves a fresh window during the submit click, before contacting the
+authorization endpoint. It clears the opener and sets a no-referrer policy before
+navigating. A visible Continue sign-in link also works when popups are blocked.
+Failures close the reserved window and allow retry. API-key connections use the
+existing backend save endpoint. Saved accounts link back to per-app permissions;
+connecting an account does not automatically grant it to an app. Discovery labels
+OAuth setup requirements and services unavailable in this server runtime.
+
+Activity resolves stored runtime token IDs to app names and connection IDs to
+account names. The protocol (MCP/HTTP/web) remains visible, along with token IDs.
+Missing or removed identities are explicitly marked. This identifies an app key,
+not an individual person behind a shared key. No historical person identities
+are inferred. Phone activity uses cards rather than a wide scrolling table.
+
 ## Mobile layout
 
 Below 960px the full sidebar moves into a keyboard-accessible menu, keeping the
@@ -61,13 +77,16 @@ Worker using the saved original domain assignment. No database restore is needed
 
 - `npm run fix-check`: formatting, lint and source/scripts/examples type checks.
 - `npm run build:console`: frontend type check and production build.
-- `vitest run web/src`: 158 tests, including layered permissions, empty-grant
+- `vitest run web/src`: 160 tests, including layered permissions, empty-grant
   protection, account restrictions and gateway routing/body preservation.
 - `node verification/browser.cjs` against a local preview on port 4177: desktop
   and touch-enabled mobile viewports (320×568, 390×844, 844×390), menu navigation
   and Escape, a long tool list with visible phone save/cancel controls, service search and account-setup navigation, per-app tool selection,
   blocked-action controls, preserving grants, explicit new-key creation and
-  wildcard-policy protection. API data/writes are mocked; no real keys are created.
+  wildcard-policy protection. Connection checks save a fixture API key and exercise
+  normal OAuth, blocked-popup fallback and authorization failure/retry. Activity
+  checks resolve app/account names on desktop and phone. API data/writes are
+  mocked; no real keys are created or external provider authorizations completed.
 - Live post-deploy: MCP metadata call through the gateway and denied empty-input
   write probe; original backend version unchanged. Existing Cloudflare login flow
   is protected but was not completed as the human owner by the agent.

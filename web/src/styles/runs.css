@@ -199,3 +199,67 @@
     min-width: 1080px;
   }
 }
+
+.runs-attribution-note {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.runs-main > .runs-page {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.runs-page .run-col-context .run-actor {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .runs-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .runs-toolbar input,
+  .runs-toolbar button {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .runs-page [data-slot="table"],
+  .runs-page [data-slot="table-body"] {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .runs-page [data-slot="table-header"] {
+    display: none;
+  }
+  .runs-page .run-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .runs-page .run-entry > td {
+    display: block;
+    width: 100%;
+    padding: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .runs-page .run-entry > td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    color: var(--muted-foreground);
+    margin-bottom: 4px;
+  }
+  .runs-page .run-col-context {
+    order: -1;
+  }
+  .runs-page .run-result-detail-row {
+    display: block;
+  }
+  .runs-page .run-result-detail-row > td {
+    display: block;
+    max-width: calc(100vw - 28px);
+  }
+}

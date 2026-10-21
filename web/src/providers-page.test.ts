@@ -662,7 +662,7 @@ describe("createOAuthPopupFeatures", () => {
         outerWidth: 1200,
         outerHeight: 900,
       }),
-    ).toBe("popup=yes,width=520,height=720,left=440,top=140,resizable=yes,scrollbars=yes,noopener,noreferrer");
+    ).toBe("popup=yes,width=520,height=720,left=440,top=140,resizable=yes,scrollbars=yes");
   });
 });
 

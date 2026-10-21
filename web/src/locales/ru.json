@@ -265,7 +265,10 @@
       "failed": "Не удалось подключиться.",
       "disconnecting": "Отключение...",
       "disconnected": "Отключено.",
-      "disconnectFailed": "Не удалось отключиться."
+      "disconnectFailed": "Не удалось отключиться.",
+      "missingAuthorizationUrl": "The service did not return a sign-in URL. Try again.",
+      "continueOAuthHelp": "Complete sign-in in the opened window. If no window appeared, use Continue sign-in below.",
+      "chooseAppAccess": "Account connected. Next, choose which app can use its tools in Services & tools."
     },
     "buttons": {
       "configureOAuthClient": "Настроить App по умолчанию",
@@ -283,7 +286,8 @@
       "disconnect": "Отключить",
       "saveOAuthClient": "Сохранить App по умолчанию",
       "updateOAuthClient": "Обновить App по умолчанию",
-      "resetOAuthClient": "Сбросить App по умолчанию"
+      "resetOAuthClient": "Сбросить App по умолчанию",
+      "continueOAuth": "Continue sign-in"
     },
     "oauthClientSettings": {
       "setupTitle": "Создайте приложение OAuth",
@@ -388,7 +392,14 @@
       "timing": "Время",
       "input": "Ввод",
       "result": "Результат"
-    }
+    },
+    "attributionHelp": "Activity identifies the app key, not an individual person. Shared keys share one identity; older entries may have no app recorded.",
+    "unknownApp": "Unknown or removed app",
+    "webConsole": "Web console",
+    "unattributed": "App not recorded",
+    "via": "Via",
+    "account": "Account",
+    "accountNotRecorded": "Not recorded"
   },
   "access": {
     "title": "Runtime Tokens",
@@ -655,6 +666,11 @@
     },
     "publicService": "No account needed",
     "publicTools": "Public service · {{count}} tools allowed",
-    "viewService": "View service"
+    "viewService": "View service",
+    "unavailable": "Not enabled on this server",
+    "setupRequired": "Setup required",
+    "unavailableHelp": "This service is in the catalog, but its tools are not enabled on this server.",
+    "oauthSetupHelp": "Register an OAuth app with this service first, then sign in to connect your account.",
+    "setupConnection": "Set up connection"
   }
 }

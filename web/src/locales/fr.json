@@ -265,7 +265,10 @@
       "failed": "Échec de la connexion.",
       "disconnecting": "Déconnexion...",
       "disconnected": "Déconnecté.",
-      "disconnectFailed": "Échec de la déconnexion."
+      "disconnectFailed": "Échec de la déconnexion.",
+      "missingAuthorizationUrl": "The service did not return a sign-in URL. Try again.",
+      "continueOAuthHelp": "Complete sign-in in the opened window. If no window appeared, use Continue sign-in below.",
+      "chooseAppAccess": "Account connected. Next, choose which app can use its tools in Services & tools."
     },
     "buttons": {
       "configureOAuthClient": "Configurer l’app par défaut",
@@ -283,7 +286,8 @@
       "disconnect": "Déconnecter",
       "saveOAuthClient": "Enregistrer l’app par défaut",
       "updateOAuthClient": "Mettre à jour l’app par défaut",
-      "resetOAuthClient": "Réinitialiser l’app par défaut"
+      "resetOAuthClient": "Réinitialiser l’app par défaut",
+      "continueOAuth": "Continue sign-in"
     },
     "oauthClientSettings": {
       "setupTitle": "Créer l'application OAuth",
@@ -388,7 +392,14 @@
       "timing": "Horaire",
       "input": "Entrée",
       "result": "Résultat"
-    }
+    },
+    "attributionHelp": "Activity identifies the app key, not an individual person. Shared keys share one identity; older entries may have no app recorded.",
+    "unknownApp": "Unknown or removed app",
+    "webConsole": "Web console",
+    "unattributed": "App not recorded",
+    "via": "Via",
+    "account": "Account",
+    "accountNotRecorded": "Not recorded"
   },
   "access": {
     "title": "Tokens runtime",
@@ -655,6 +666,11 @@
     },
     "publicService": "No account needed",
     "publicTools": "Public service · {{count}} tools allowed",
-    "viewService": "View service"
+    "viewService": "View service",
+    "unavailable": "Not enabled on this server",
+    "setupRequired": "Setup required",
+    "unavailableHelp": "This service is in the catalog, but its tools are not enabled on this server.",
+    "oauthSetupHelp": "Register an OAuth app with this service first, then sign in to connect your account.",
+    "setupConnection": "Set up connection"
   }
 }
