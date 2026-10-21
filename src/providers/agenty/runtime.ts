@@ -2,8 +2,8 @@ import type { CredentialValidationResult, TransitFileWriter } from "../../core/t
 import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
 
-import { compactObject, optionalRecord, optionalString, requiredRecord } from "../../core/cast.ts";
-import { readBoundedResponseBytes } from "../../core/request.ts";
+import { compactObject, optionalRecord, optionalString, recordOrEmpty, requiredRecord } from "../../core/cast.ts";
+import { storeResponseInTransit } from "../../core/request.ts";
 import { providerFetch, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 export const agentyApiBaseUrl = "https://api.agenty.com/v2";
@@ -336,7 +336,7 @@ async function getList(input: Record<string, unknown>, context: AgentyRuntimeCon
     path: `/lists/${listId}`,
     context,
   });
-  const record = asRecord(payload);
+  const record = recordOrEmpty(payload);
   return {
     list: "list_id" in record ? record : unwrapAgentyPayload(payload),
   };
@@ -582,12 +582,13 @@ async function uploadAgentyTransitFile(context: AgentyRuntimeContext, response: 
   }
 
   const mimeType = response.headers.get("content-type") ?? "application/octet-stream";
-  const bytes = await readBoundedResponseBytes(response, {
-    maxBytes: context.transitFiles.maxBytes,
+  const upload = await storeResponseInTransit(response, context.transitFiles, {
+    name,
+    mimeType,
     fieldName: "Agenty file output",
     createError: (message) => new ProviderRequestError(413, message),
+    signal: context.signal,
   });
-  const upload = await context.transitFiles.create(new File([Uint8Array.from(bytes)], name, { type: mimeType }));
   return {
     name,
     mimetype: mimeType,
@@ -867,10 +868,6 @@ function createAgentyError(input: { status: number; payload: unknown; mode: "val
     return new ProviderRequestError(429, message, input.payload);
   }
   return new ProviderRequestError(input.status >= 500 ? 502 : input.status, message, input.payload);
-}
-
-function asRecord(value: unknown) {
-  return optionalRecord(value) ?? {};
 }
 
 function readStructuredDataValue(value: unknown) {

@@ -1,7 +1,9 @@
 import type { ProviderDefinition } from "../../core/types.ts";
 
 import { shopifyActions } from "./actions.ts";
-import { shopifyOAuthScopes } from "./scopes.ts";
+import { shopifyOAuthScopes, shopifyOptionalScopes } from "./scopes.ts";
+import { snapshot as triggerSnapshot0_0 } from "./trigger-on-shop-event.definition.ts";
+import { triggerPermissions } from "./trigger-permissions.ts";
 
 const service = "shopify";
 const shopifyAuthorizationUrl = "https://{shopSubdomain}.myshopify.com/admin/oauth/authorize";
@@ -9,7 +11,7 @@ const shopifyTokenUrl = "https://{shopSubdomain}.myshopify.com/admin/oauth/acces
 
 export const provider: ProviderDefinition = {
   service,
-  displayName: "Shopify REST Admin (Legacy)",
+  displayName: "Shopify",
   categories: ["Marketing", "Data"],
   authTypes: ["oauth2", "api_key"],
   auth: [
@@ -18,6 +20,7 @@ export const provider: ProviderDefinition = {
       authorizationUrl: shopifyAuthorizationUrl,
       tokenUrl: shopifyTokenUrl,
       scopes: shopifyOAuthScopes,
+      optionalScopes: shopifyOptionalScopes,
       scopeSeparator: ",",
       tokenEndpointAuthMethod: "client_secret_post",
       clientConfigFields: [
@@ -54,4 +57,6 @@ export const provider: ProviderDefinition = {
   ],
   homepageUrl: "https://www.shopify.com",
   actions: shopifyActions,
+  triggers: [triggerSnapshot0_0],
+  triggerPermissions,
 };

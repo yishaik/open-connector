@@ -53,6 +53,15 @@ describe("workspace access", () => {
       ),
     ).toBe(0);
   });
+  it("does not count tools on an account requiring a fresh sign-in", () => {
+    expect(
+      allowedToolCount(
+        provider,
+        { ...data, connections: data.connections.map((connection) => ({ ...connection, status: "reauth_required" })) },
+        token,
+      ),
+    ).toBe(0);
+  });
   it("fails closed if the runtime policy has not loaded", () => {
     expect(allowedToolCount(provider, { ...data, runtimePolicy: undefined }, token)).toBe(0);
   });

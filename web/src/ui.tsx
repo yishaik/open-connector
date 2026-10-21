@@ -24,15 +24,17 @@ import {
   Menu,
   Moon,
   RefreshCw,
+  Settings,
   Sun,
   TerminalSquare,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router";
+import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router";
 import { AccessPage } from "./access-page";
 import { ActionsPage } from "./actions-page";
 import { ApiError, apiGet, apiPost } from "./api";
 import oomolConnectLogoUrl from "./assets/oomol-connect-logo.png";
+import { normalizeGatewayUrl } from "./client-onboarding";
 import { persistLang, supportedLangs } from "./i18n";
 import { emptyData } from "./model";
 import { OAuthAppsPage } from "./oauth-apps-page";
@@ -44,10 +46,18 @@ import { InlineError, StatusDot } from "./shared-ui";
 import { useThemeMode } from "./theme";
 import { WorkspacePage } from "./workspace-page";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Toaster } from "@/components/ui/sonner";
 
 const navItems = [
   { path: "/workspace", labelKey: "nav.workspace", icon: Cable },
@@ -145,21 +155,36 @@ export async function loadRuntimeData(
   unlockToken: string,
   cachedProviders?: ProviderDefinition[],
 ): Promise<RuntimeLoadResult> {
-  const authSession = await apiGet<AuthSession>("/api/auth/session", { bearerToken: unlockToken });
+  const authSession = await apiGet<AuthSession>("/api/auth/session", unlockToken);
   if (!authSession.authenticated) {
     return { authSession, data: emptyData };
   }
 
   const catalogRequest =
-    cachedProviders !== undefined ? Promise.resolve(cachedProviders) : apiGet<ProviderDefinition[]>("/api/providers");
+    cachedProviders !== undefined
+      ? Promise.resolve(cachedProviders)
+      : apiGet<(ProviderDefinition & { setup: ProviderDefinition["auth"] })[]>("/api/providers").then((providers) =>
+          providers.map(({ setup, ...provider }) => ({ ...provider, auth: setup })),
+        );
 
-  const [providers, connections, oauthConfigs, runtimeTokens, runtimePolicy, runPage] = await Promise.all([
+  const [
+    providers,
+    connections,
+    oauthConfigs,
+    runtimeTokens,
+    runtimePolicy,
+    runPage,
+    marketplace,
+    providerPreferences,
+  ] = await Promise.all([
     catalogRequest,
     apiGet<ConnectionRecord[]>("/api/connections"),
     apiGet<OAuthConfig[]>("/api/oauth/configs"),
     apiGet<RuntimeTokenSummary[]>("/api/runtime-tokens"),
     apiGet<RuntimePolicyState>("/api/runtime-policy"),
     apiGet<RunLogPage>("/api/runs"),
+    apiGet<import("./model").MarketplaceState>("/api/marketplace"),
+    apiGet<import("./model").ProviderPreference[]>("/api/provider-preferences"),
   ]);
 
   return {
@@ -172,6 +197,8 @@ export async function loadRuntimeData(
       runtimePolicy,
       runs: runPage.items,
       runsNextCursor: runPage.nextCursor,
+      marketplace,
+      providerPreferences,
     },
   };
 }
@@ -323,6 +350,17 @@ function AppShell(props: {
   const t = useTranslate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [clientGatewayUrl, setClientGatewayUrl] = useState(() =>
+    typeof window === "undefined" ? "http://localhost:3000" : window.location.origin,
+  );
+  const clientBaseUrl =
+    normalizeGatewayUrl(clientGatewayUrl) ??
+    (typeof window === "undefined" ? "http://localhost:3000" : window.location.origin);
+  const connectionSettingsParams = new URLSearchParams(location.pathname === "/providers" ? location.search : "");
+  connectionSettingsParams.set("onekey", "overview");
+  connectionSettingsParams.delete("features");
+  const connectionSettingsUrl = `/providers?${connectionSettingsParams}`;
   const heading = headingForPath(location.pathname);
   const section = location.pathname.split("/").filter(Boolean)[0];
   const isOverviewPage = heading === "overview";
@@ -335,7 +373,7 @@ function AppShell(props: {
   ]
     .filter(Boolean)
     .join(" ");
-  const currentNavItem = navItems.find((item) => item.labelKey === `nav.${heading}`) ?? navItems[0];
+  const currentNavItem = navItems.find((item) => item.path === `/${section}`) ?? navItems[0];
   const CurrentNavIcon = currentNavItem.icon;
 
   const sidebarContent = (
@@ -406,12 +444,61 @@ function AppShell(props: {
             <CurrentNavIcon size={16} />
             <h1>{t(heading === "workspace" ? "nav.workspace" : `shell.headings.${heading}.title`)}</h1>
           </div>
-          {props.loading ? (
-            <div className="loading-panel page-loading">
-              <Loader2 className="spin" size={16} />
-              {t("common.loadingRuntimeData")}
-            </div>
-          ) : null}
+          <div className="shell-header-actions">
+            {props.loading ? (
+              <div className="loading-panel page-loading">
+                <Loader2 className="spin" size={16} />
+                {t("common.loadingRuntimeData")}
+              </div>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("shell.settings")}
+              aria-haspopup="dialog"
+              aria-expanded={settingsOpen}
+              title={t("shell.settings")}
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings size={18} aria-hidden="true" />
+            </Button>
+          </div>
+          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <DialogContent className="translate-x-0 translate-y-0 console-settings-panel">
+              <DialogHeader>
+                <DialogTitle>{t("shell.settings")}</DialogTitle>
+                <DialogDescription>{t("shell.settingsDescription")}</DialogDescription>
+              </DialogHeader>
+              <div className="console-settings-controls">
+                <LanguageSelect />
+                <ThemeControl theme={props.theme} onThemeChange={props.onThemeChange} />
+              </div>
+              <div className="console-settings-section">
+                <Button asChild variant="outline">
+                  <Link to={connectionSettingsUrl} onClick={() => setSettingsOpen(false)}>
+                    <Cable size={15} aria-hidden="true" />
+                    {t("providers.hostedAccess.restore")}
+                  </Link>
+                </Button>
+                <p className="console-settings-feature-description">{t("shell.oomolKeyDescription")}</p>
+              </div>
+              <div className="console-settings-runtime">
+                <div className="runtime-status">
+                  <StatusDot ok={!props.error} />
+                  <span>{props.error ? t("common.apiUnavailable") : t("common.runtimeReady")}</span>
+                </div>
+                <Button variant="outline" size="sm" onClick={props.onRefresh} disabled={props.loading}>
+                  {props.loading ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+                  {t("common.refresh")}
+                </Button>
+              </div>
+              {props.showLogout ? (
+                <Button variant="outline" onClick={props.onLogout}>
+                  {t("shell.logout")}
+                </Button>
+              ) : null}
+            </DialogContent>
+          </Dialog>
         </header>
 
         <main className={mainClassName}>
@@ -422,13 +509,20 @@ function AppShell(props: {
             <Route path="/workspace" element={<WorkspacePage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/overview" element={<OverviewPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/providers" element={<ProvidersPage data={props.data} onRefresh={props.onRefresh} />} />
+            <Route path="/marketplace" element={<Navigate to="/providers?onekey=1" replace />} />
             <Route
               path="/providers/:service"
               element={<ProvidersPage data={props.data} onRefresh={props.onRefresh} />}
             />
             <Route path="/oauth-apps" element={<OAuthAppsPage data={props.data} onRefresh={props.onRefresh} />} />
-            <Route path="/actions" element={<ActionsPage data={props.data} onRefresh={props.onRefresh} />} />
-            <Route path="/actions/:actionId" element={<ActionsPage data={props.data} onRefresh={props.onRefresh} />} />
+            <Route
+              path="/actions"
+              element={<ActionsPage data={props.data} gatewayUrl={clientBaseUrl} onRefresh={props.onRefresh} />}
+            />
+            <Route
+              path="/actions/:actionId"
+              element={<ActionsPage data={props.data} gatewayUrl={clientBaseUrl} onRefresh={props.onRefresh} />}
+            />
             <Route
               path="/runs"
               element={
@@ -452,11 +546,20 @@ function AppShell(props: {
                 />
               }
             />
-            <Route path="/resources" element={<ResourcesPage />} />
+            <Route
+              path="/resources"
+              element={<ResourcesPage gatewayUrl={clientGatewayUrl} onGatewayUrlChange={setClientGatewayUrl} />}
+            />
             <Route path="*" element={<Navigate to="/overview" replace />} />
           </Routes>
         </main>
       </div>
+      <Toaster
+        position="top-right"
+        closeButton
+        containerAriaLabel={t("shell.notifications")}
+        toastOptions={{ closeButtonAriaLabel: t("common.close") }}
+      />
     </div>
   );
 }
@@ -484,7 +587,7 @@ export function UnlockView(props: UnlockViewProps): ReactNode {
         <div className="brand">
           <img className="brand-mark" src={oomolConnectLogoUrl} alt="" />
           <div>
-            <div className="brand-name">OOMOL Connect</div>
+            <div className="brand-name">Open Connector</div>
             <div className="brand-subtitle">{t("brand.adminAccess")}</div>
           </div>
         </div>
@@ -593,6 +696,9 @@ function headingForPath(pathname: string): string {
   if (section === "workspace") return "workspace";
   if (section === "providers") {
     return "providers";
+  }
+  if (section === "marketplace") {
+    return "marketplace";
   }
   if (section === "oauth-apps") {
     return "oauthApps";

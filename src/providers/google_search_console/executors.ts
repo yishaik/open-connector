@@ -4,13 +4,20 @@ import type { OAuthProviderContext } from "../provider-runtime.ts";
 
 import {
   compactObject,
+  optionalNumber,
   optionalRecord as asOptionalObject,
   optionalString as asOptionalString,
   pickOptionalInteger,
   pickOptionalString as pickNonEmptyString,
 } from "../../core/cast.ts";
-import { googleJsonRequest, googleRequest } from "../google-runtime.ts";
-import { defineOAuthProviderExecutors, defineProviderProxy, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineGoogleProviderExecutors,
+  googleBearerProxyAuth,
+  googleServiceAccountValidator,
+} from "../googledrive/runtime-auth.ts";
+import { googleJsonRequest, googleRequest } from "../googledrive/runtime-request.ts";
+import { defineProviderProxy, ProviderRequestError } from "../provider-runtime.ts";
+import { googleSearchConsoleOAuthScopes } from "./scopes.ts";
 
 const service = "google_search_console";
 
@@ -72,7 +79,9 @@ export const googleSearchConsoleActionHandlers: ProviderActionHandlers<"google_s
   },
 };
 
-export const executors: ProviderExecutors = defineOAuthProviderExecutors(service, googleSearchConsoleActionHandlers);
+export const executors: ProviderExecutors = defineGoogleProviderExecutors(service, googleSearchConsoleActionHandlers, {
+  scopes: googleSearchConsoleOAuthScopes,
+});
 
 export const credentialValidators: CredentialValidators = {
   async oauth2(input, { fetcher }) {
@@ -94,6 +103,7 @@ export const credentialValidators: CredentialValidators = {
       },
     };
   },
+  customCredential: googleServiceAccountValidator(service, googleSearchConsoleOAuthScopes),
 };
 
 async function listSites(_input: Record<string, unknown>, { accessToken, fetcher }: RuntimeDeps) {
@@ -280,10 +290,10 @@ function normalizeSearchAnalyticsRow(value: unknown) {
 
   return {
     keys: Array.isArray(payload.keys) ? payload.keys.map(String) : [],
-    clicks: asOptionalNumber(payload.clicks) ?? 0,
-    impressions: asOptionalNumber(payload.impressions) ?? 0,
-    ctr: asOptionalNumber(payload.ctr) ?? 0,
-    position: asOptionalNumber(payload.position) ?? 0,
+    clicks: optionalNumber(payload.clicks) ?? 0,
+    impressions: optionalNumber(payload.impressions) ?? 0,
+    ctr: optionalNumber(payload.ctr) ?? 0,
+    position: optionalNumber(payload.position) ?? 0,
   };
 }
 
@@ -330,10 +340,6 @@ function stringifyOptional(value: unknown) {
     return String(value);
   }
   return null;
-}
-
-function asOptionalNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function resolveSiteUrl(input: Record<string, unknown>) {
@@ -405,5 +411,5 @@ async function urlInspectionJsonRequest<T>(
 export const proxy: ProviderProxyExecutor = defineProviderProxy({
   service,
   baseUrl: "https://www.googleapis.com/webmasters/v3",
-  auth: { type: "oauth_bearer" },
+  auth: googleBearerProxyAuth(googleSearchConsoleOAuthScopes),
 });

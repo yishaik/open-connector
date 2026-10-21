@@ -8,13 +8,13 @@ import type {
   ProviderDefinition,
   ProviderProxyExecutor,
   ResolvedCredential,
+  TransitFileUpload,
 } from "../core/types.ts";
 import type { IOAuthClientConfigStore, OAuthClientConfig } from "../oauth/oauth-client-config-service.ts";
 import type { IOAuthStateStore, OAuthAuthorizationState } from "../oauth/oauth-flow-service.ts";
 import type { IProviderLoader } from "../providers/provider-loader.ts";
 import type { RuntimeActionHttpResult } from "./api/runtime-api.ts";
 import type { RuntimeJwtVerifier } from "./api/runtime-jwt.ts";
-import type { TransitFileUpload } from "./files/transit-file-store.ts";
 import type { Logger } from "./logger.ts";
 import type { ISecretCodec } from "./secrets/secret-codec-core.ts";
 import type {
@@ -36,6 +36,7 @@ import { createCatalogStore } from "../catalog-store.ts";
 import { ConnectionService } from "../connection-service.ts";
 import { ActionPolicyService as LocalActionPolicyService } from "../core/action-policy.ts";
 import { buildActionSearchIndex } from "../core/action-search.ts";
+import { MarketplaceError, MarketplaceService } from "../marketplace/marketplace-service.ts";
 import { OAuthClientConfigService } from "../oauth/oauth-client-config-service.ts";
 import { OAuthFlowService } from "../oauth/oauth-flow-service.ts";
 import { actionInputMaxDepth, hashActionRequest, hashIdempotencyKey } from "./actions/action-idempotency.ts";
@@ -43,9 +44,10 @@ import { ActionRunner } from "./actions/action-runner.ts";
 import { registerStaticRoutes } from "./api/static-routes.ts";
 import { ConnectServer } from "./connect-server.ts";
 import { TransitFileService } from "./files/transit-files.ts";
-import { AesGcmSecretCodec } from "./secrets/secret-codec.ts";
+import { AesGcmSecretCodec, PlainTextSecretCodec } from "./secrets/secret-codec.ts";
 import { decodeRunLogCursor, encodeRunLogCursor } from "./storage/runtime-store.ts";
 import { RuntimeTokenService } from "./storage/runtime-token-service.ts";
+import { SqliteRuntimeDatabase } from "./storage/sqlite/runtime-store.ts";
 
 const apiKeyProvider: ProviderDefinition = {
   service: "example",
@@ -55,6 +57,11 @@ const apiKeyProvider: ProviderDefinition = {
   auth: [{ type: "api_key" }],
   actions: [],
 };
+
+const requestDatabases: SqliteRuntimeDatabase[] = [];
+afterEach(() => {
+  for (const database of requestDatabases.splice(0)) database.close();
+});
 
 const oauthProvider: ProviderDefinition = {
   service: "oauth_example",
@@ -88,6 +95,7 @@ const echoAction: ActionDefinition = {
   service: "example",
   name: "echo",
   description: "Echo input.",
+  operationType: "write",
   requiredScopes: [],
   providerPermissions: [],
   inputSchema: { type: "object" },
@@ -134,6 +142,54 @@ afterEach(() => {
 });
 
 describe("ConnectServer", () => {
+  it.each([401, 403, 502, 504])("preserves Marketplace error status %s", async (status) => {
+    const database = new SqliteRuntimeDatabase(":memory:");
+    requestDatabases.push(database);
+    const marketplace = new MarketplaceService({
+      catalog: createCatalogStore([apiKeyProvider]),
+      store: database.marketplaceStore,
+      secretCodec: new PlainTextSecretCodec(),
+    });
+    vi.spyOn(marketplace, "configure").mockRejectedValue(
+      new MarketplaceError("marketplace_unavailable", "Marketplace request failed.", status),
+    );
+    const app = createTestServer([apiKeyProvider], { marketplace }).createApp();
+    const response = await app.request("/api/marketplace", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ apiKey: "secret" }),
+    });
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual({
+      error: { code: "marketplace_unavailable", message: "Marketplace request failed." },
+    });
+  });
+
+  it("serves default Marketplace discovery through the same-origin API", async () => {
+    const database = new SqliteRuntimeDatabase(":memory:");
+    requestDatabases.push(database);
+    const marketplace = new MarketplaceService({
+      catalog: createCatalogStore([apiKeyProvider]),
+      store: database.marketplaceStore,
+      secretCodec: new PlainTextSecretCodec(),
+    });
+    vi.spyOn(marketplace, "getDefaultDiscovery").mockResolvedValue({
+      version: 1,
+      name: "Default",
+      actions: ["example.echo"],
+    });
+    const app = createTestServer([apiKeyProvider], { marketplace }).createApp();
+
+    const response = await app.request("/api/marketplace/discovery");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      version: 1,
+      name: "Default",
+      actions: ["example.echo"],
+    });
+  });
+
   it("rejects connections for providers unavailable in the current runtime", async () => {
     const app = createTestServer([catalogOnlyProvider]).createApp();
 
@@ -168,6 +224,23 @@ describe("ConnectServer", () => {
         message: "OAuth Catalog Only is not available in this runtime.",
       },
     });
+  });
+
+  it("starts configured Console OAuth without an admin token when runtime authentication is enabled", async () => {
+    const app = createTestServer([oauthProvider], { auth: { runtimeToken: "runtime-secret" } }).createApp();
+    const configured = await app.request("/api/oauth/configs/oauth_example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clientId: "client", clientSecret: "secret" }),
+    });
+    expect(configured.status).toBe(200);
+    const response = await app.request("/api/oauth/authorizations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ service: "oauth_example", connectionName: "work" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ authorizationUrl: expect.stringContaining("client_id=client") });
   });
 
   it("starts console OAuth with a connection-scoped client", async () => {
@@ -349,6 +422,109 @@ describe("ConnectServer", () => {
     await expect(response.json()).resolves.toMatchObject({ error: { code: "invalid_input" } });
   });
 
+  it("stores a per-provider redirect URI override through the public API and reports it", async () => {
+    const app = createTestServer([oauthProvider]).createApp();
+    const config = await app.request("/api/oauth/configs/oauth_example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        redirectUri: "app://oauth/callback",
+      }),
+    });
+
+    expect(config.status).toBe(200);
+    await expect(config.json()).resolves.toMatchObject({
+      redirectUri: "app://oauth/callback",
+      expectedRedirectUri: "app://oauth/callback",
+    });
+    await expect((await app.request("/api/oauth/configs")).json()).resolves.toMatchObject([
+      { service: "oauth_example", redirectUri: "app://oauth/callback" },
+    ]);
+
+    const authorization = await app.request("/api/oauth/authorizations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ service: "oauth_example" }),
+    });
+    const body = (await authorization.json()) as { authorizationUrl: string };
+
+    expect(authorization.status).toBe(200);
+    expect(new URL(body.authorizationUrl).searchParams.get("redirect_uri")).toBe("app://oauth/callback");
+  });
+
+  it.each([
+    ["not an absolute URL", "oauth/callback", "redirectUri must be an absolute URL."],
+    ["a javascript URL", "javascript:alert(1)", "redirectUri scheme is not allowed."],
+    ["not a string", 42, "redirectUri must be a string."],
+    ["null", null, "redirectUri must be a string."],
+  ])("rejects a redirect URI override that is %s through the public API", async (_case, redirectUri, message) => {
+    const app = createTestServer([oauthProvider]).createApp();
+    const response = await app.request("/api/oauth/configs/oauth_example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clientId: "client-id", clientSecret: "client-secret", redirectUri }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: { code: "invalid_input", message } });
+    await expect((await app.request("/api/oauth/configs")).json()).resolves.toMatchObject([
+      { service: "oauth_example", configured: false, redirectUri: null },
+    ]);
+  });
+
+  // A redirect URI on the authorization request belongs to a connection-scoped
+  // client; it must never redirect the stored client's authorization code.
+  it.each([
+    ["custom OAuth apps are disabled", {}, "oauth_custom_app_not_allowed"],
+    [
+      "custom OAuth apps are enabled",
+      { allowedCustomOAuth: ["oauth_example"], secretCodec: new AesGcmSecretCodec("test-encryption-key") },
+      "invalid_input",
+    ],
+  ])("does not pair an authorization redirect URI with the stored client when %s", async (_case, options, code) => {
+    const app = createTestServer([oauthProvider], options).createApp();
+    await app.request("/api/oauth/configs/oauth_example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clientId: "global-client-id", clientSecret: "global-client-secret" }),
+    });
+
+    const response = await app.request("/api/oauth/authorizations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ service: "oauth_example", redirectUri: "https://elsewhere.example/callback" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code } });
+  });
+
+  it("carries a connection-scoped OAuth client's own redirect URI on its authorize URL", async () => {
+    const app = createTestServer([oauthProvider], {
+      allowedCustomOAuth: ["oauth_example"],
+      secretCodec: new AesGcmSecretCodec("test-encryption-key"),
+    }).createApp();
+
+    const response = await app.request("/api/oauth/authorizations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        service: "oauth_example",
+        clientId: "connection-client-id",
+        clientSecret: "connection-client-secret",
+        redirectUri: "app://oauth/callback",
+      }),
+    });
+    const body = (await response.json()) as { authorizationUrl: string };
+
+    expect(response.status).toBe(200);
+    const authorizationUrl = new URL(body.authorizationUrl);
+    expect(authorizationUrl.searchParams.get("client_id")).toBe("connection-client-id");
+    expect(authorizationUrl.searchParams.get("redirect_uri")).toBe("app://oauth/callback");
+  });
+
   it("lists providers without action schemas and serves full schemas per action", async () => {
     const app = createTestServer([
       {
@@ -359,6 +535,7 @@ describe("ConnectServer", () => {
             service: "example",
             name: "echo",
             description: "Echo the input.",
+            operationType: "read",
             requiredScopes: [],
             providerPermissions: [],
             inputSchema: { type: "object", properties: { message: { type: "string" } } },
@@ -507,6 +684,51 @@ describe("ConnectServer", () => {
     });
   });
 
+  it("accepts case-insensitive JSON media types when disconnecting a named connection", async () => {
+    const app = createTestServer([apiKeyProvider]).createApp();
+    for (const [connectionName, apiKey] of [
+      ["default", "default-key"],
+      ["work", "work-key"],
+    ]) {
+      await app.request("/api/connections/example", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ authType: "api_key", connectionName, values: { apiKey } }),
+      });
+    }
+
+    const response = await app.request("/api/connections/example", {
+      method: "DELETE",
+      headers: { "content-type": "Application/JSON; Charset=UTF-8" },
+      body: JSON.stringify({ connectionName: "work" }),
+    });
+
+    expect(response.status).toBe(200);
+    // Without `revoke: true` the delete leaves the provider's grant alone, as it always has.
+    await expect(response.json()).resolves.toMatchObject({
+      connectionName: "work",
+      configured: false,
+      revoked: "skipped",
+    });
+    const connections = (await (await app.request("/api/connections")).json()) as Array<{ connectionName: string }>;
+    expect(connections.map((connection) => connection.connectionName)).toEqual(["default"]);
+
+    // `revoke: true` asks for the grant to end; a provider that declares no revocation endpoint
+    // cannot, and says so, while the delete still happens.
+    const asked = await app.request("/api/connections/example", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ connectionName: "default", revoke: true }),
+    });
+    expect(asked.status).toBe(200);
+    await expect(asked.json()).resolves.toMatchObject({
+      connectionName: "default",
+      configured: false,
+      revoked: "unsupported",
+    });
+    expect(await (await app.request("/api/connections")).json()).toEqual([]);
+  });
+
   it("rejects JSON request bodies that are not objects", async () => {
     const app = createTestServer([
       {
@@ -587,6 +809,13 @@ describe("ConnectServer", () => {
       headers: { authorization: "Bearer local-token" },
     });
     expect(runtimeUnauthorized.status).toBe(401);
+    await expect(runtimeUnauthorized.json()).resolves.toEqual({
+      success: false,
+      message: "A valid local bearer token is required.",
+      data: null,
+      errorCode: "unauthorized",
+      meta: {},
+    });
 
     const runtimeAuthorized = await app.request("/v1/actions", {
       headers: { authorization: "Bearer runtime-token" },
@@ -1246,6 +1475,39 @@ describe("ConnectServer", () => {
     });
   });
 
+  it("documents every /v1 route the app serves", async () => {
+    const app = createTestServer([apiKeyProvider, oauthProvider]).createApp();
+    const document = (await (await app.request("/openapi.json")).json()) as {
+      paths: Record<string, Record<string, unknown>>;
+    };
+
+    // The served document is the SDK/CLI contract for these routes: a route
+    // added without a path entry, or a documented path that no longer exists,
+    // is invisible to every client that reads the document. Operations are read
+    // from the path item itself (excluding its non-operation fields) so the
+    // comparison covers every HTTP method without a method list to maintain.
+    const pathItemFields = new Set(["$ref", "summary", "description", "servers", "parameters"]);
+    const documented = new Set<string>();
+    for (const [path, operations] of Object.entries(document.paths)) {
+      if (!path.startsWith("/v1")) continue;
+      for (const method of Object.keys(operations)) {
+        if (pathItemFields.has(method) || method.startsWith("x-")) continue;
+        documented.add(`${method.toUpperCase()} ${path}`);
+      }
+    }
+
+    const registered = new Set(
+      app.routes
+        .filter((route) => route.method !== "ALL" && route.path.startsWith("/v1"))
+        .map((route) => `${route.method} ${route.path.replaceAll(/:([A-Za-z0-9_]+)/gu, "{$1}")}`),
+    );
+
+    expect(registered.size).toBeGreaterThanOrEqual(20);
+    expect(documented.size).toBeGreaterThanOrEqual(20);
+    expect([...registered].filter((route) => !documented.has(route))).toEqual([]);
+    expect([...documented].filter((route) => !registered.has(route))).toEqual([]);
+  });
+
   it("rejects non-POST MCP requests", async () => {
     const app = createTestServer([apiKeyProvider]).createApp();
 
@@ -1314,59 +1576,63 @@ describe("ConnectServer", () => {
     });
   });
 
-  it("lists OAuth connections after the callback completes", async () => {
-    const app = createTestServer([oauthProvider]).createApp();
-    const config = await app.request("/api/oauth/configs/oauth_example", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        clientId: "client-id",
-        clientSecret: "client-secret",
-        secretExtra: {
-          appBearerToken: "app-token",
+  it.each([undefined, 0, 3])(
+    "lists OAuth connections after the callback completes with close delay %s",
+    async (oauthCloseDelaySeconds) => {
+      const app = createTestServer([oauthProvider], { oauthCloseDelaySeconds }).createApp();
+      const config = await app.request("/api/oauth/configs/oauth_example", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          secretExtra: {
+            appBearerToken: "app-token",
+          },
+        }),
+      });
+      expect(config.status).toBe(200);
+      const authorization = await app.request("/api/oauth/authorizations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ service: "oauth_example" }),
+      });
+      expect(authorization.status).toBe(200);
+      const { state } = (await authorization.json()) as { state: string };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => Response.json({ access_token: "access-token", token_type: "Bearer" })),
+      );
+
+      const callback = await app.request(`/oauth/callback?state=${state}&code=example-code`);
+      const callbackText = await callback.text();
+
+      expect(callback.status, callbackText).toBe(200);
+      expect(callbackText).toContain("BroadcastChannel");
+      expect(callbackText).toContain('"type":"oauth.completed"');
+      expect(callbackText).toContain('"service":"oauth_example"');
+      expect(callbackText).not.toContain("window.opener");
+      expect(callbackText).not.toContain('postMessage(message,"*"');
+      expect(callbackText).toContain("Connection complete");
+      expect(callbackText).toContain("Close this window to continue where you started.");
+      expect(callbackText).not.toContain("OOMOL Connect");
+      expect(callbackText).toContain("card");
+      expect(callbackText).toContain("badge");
+      expect(callbackText).toContain(`Automatically closing in ${oauthCloseDelaySeconds ?? 5} seconds.`);
+      expect(callbackText).toContain(`let remaining=${oauthCloseDelaySeconds ?? 5};`);
+      expect(callbackText).toContain("setTimeout");
+      expect(callbackText).toContain("window.close()");
+      const connections = await app.request("/api/connections");
+      expect(connections.status).toBe(200);
+      await expect(connections.json()).resolves.toMatchObject([
+        {
+          service: "oauth_example",
+          authType: "oauth2",
+          configured: true,
         },
-      }),
-    });
-    expect(config.status).toBe(200);
-    const authorization = await app.request("/api/oauth/authorizations", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ service: "oauth_example" }),
-    });
-    expect(authorization.status).toBe(200);
-    const { state } = (await authorization.json()) as { state: string };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json({ access_token: "access-token", token_type: "Bearer" })),
-    );
-
-    const callback = await app.request(`/oauth/callback?state=${state}&code=example-code`);
-    const callbackText = await callback.text();
-
-    expect(callback.status, callbackText).toBe(200);
-    expect(callbackText).toContain("BroadcastChannel");
-    expect(callbackText).toContain('"type":"oauth.completed"');
-    expect(callbackText).toContain('"service":"oauth_example"');
-    expect(callbackText).not.toContain("window.opener");
-    expect(callbackText).not.toContain('postMessage(message,"*"');
-    expect(callbackText).toContain("Connection complete");
-    expect(callbackText).toContain("Close this window to continue where you started.");
-    expect(callbackText).not.toContain("OOMOL Connect");
-    expect(callbackText).toContain("card");
-    expect(callbackText).toContain("badge");
-    expect(callbackText).toContain("Automatically closing in 5 seconds.");
-    expect(callbackText).toContain("setTimeout");
-    expect(callbackText).toContain("window.close()");
-    const connections = await app.request("/api/connections");
-    expect(connections.status).toBe(200);
-    await expect(connections.json()).resolves.toMatchObject([
-      {
-        service: "oauth_example",
-        authType: "oauth2",
-        configured: true,
-      },
-    ]);
-  });
+      ]);
+    },
+  );
 
   it("keeps the console shell public while protecting admin APIs", async () => {
     const staticRoot = await createTestStaticRoot();
@@ -2407,6 +2673,20 @@ describe("ConnectServer", () => {
     expect(markdown).toContain("`messages:read`");
   });
 
+  it("renders agent.md request examples against the configured public origin", async () => {
+    const app = createTestServer([{ ...apiKeyProvider, actions: [echoAction] }], {
+      publicOrigin: "https://connector.example.com",
+    }).createApp();
+
+    const response = await app.request("/api/actions/example.echo/agent.md");
+
+    expect(response.status).toBe(200);
+    const markdown = await response.text();
+    expect(markdown).toContain("curl -s https://connector.example.com/v1/actions/example.echo \\");
+    expect(markdown).toContain('fetch("https://connector.example.com/v1/actions/example.echo"');
+    expect(markdown).not.toContain("localhost");
+  });
+
   it("returns connection errors for action agent.md instead of 500", async () => {
     const app = createTestServer([
       {
@@ -2539,7 +2819,8 @@ describe("ConnectServer", () => {
 
     const providers = await app.request("/v1/providers");
     expect(providers.status).toBe(200);
-    expect(providers.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(providers.headers.get("cache-control")).toBe("no-store");
+    expect(providers.headers.get("cloudflare-cdn-cache-control")).toBeNull();
     await expect(providers.json()).resolves.toMatchObject({
       success: true,
       data: [
@@ -2554,7 +2835,8 @@ describe("ConnectServer", () => {
 
     const actionServices = await app.request("/v1/actions");
     expect(actionServices.status).toBe(200);
-    expect(actionServices.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(actionServices.headers.get("cache-control")).toBe("no-store");
+    expect(actionServices.headers.get("cloudflare-cdn-cache-control")).toBeNull();
     await expect(actionServices.json()).resolves.toMatchObject({
       success: true,
       data: [{ service: "example" }],
@@ -2562,13 +2844,15 @@ describe("ConnectServer", () => {
 
     const actions = await app.request("/v1/actions?service=example");
     expect(actions.status).toBe(200);
-    expect(actions.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(actions.headers.get("cache-control")).toBe("no-store");
+    expect(actions.headers.get("cloudflare-cdn-cache-control")).toBeNull();
     await expect(actions.json()).resolves.toMatchObject({
       success: true,
       data: [
         {
           id: "example.echo",
           service: "example",
+          operationType: "write",
           followUpActions: [{ actionId: "example.follow_up" }],
         },
         {
@@ -2609,6 +2893,7 @@ describe("ConnectServer", () => {
         service: string;
         name: string;
         description: string;
+        operationType: ActionDefinition["operationType"];
         authenticated: boolean;
         inputSchema: Record<string, unknown>;
         outputSchema: Record<string, unknown>;
@@ -2620,6 +2905,7 @@ describe("ConnectServer", () => {
       service: "example",
       name: "echo",
       description: "Echo input.",
+      operationType: "write",
       authenticated: true,
       inputSchema: { type: "object" },
       outputSchema: { type: "object" },
@@ -2627,13 +2913,15 @@ describe("ConnectServer", () => {
 
     const action = await app.request("/v1/actions/example.echo");
     expect(action.status).toBe(200);
-    expect(action.headers.get("cache-control")).toBe("public, max-age=0, must-revalidate");
+    expect(action.headers.get("cache-control")).toBe("no-store");
+    expect(action.headers.get("cloudflare-cdn-cache-control")).toBeNull();
     await expect(action.json()).resolves.toMatchObject({
       success: true,
       meta: {},
       data: {
         id: "example.echo",
         service: "example",
+        operationType: "write",
         inputSchema: { type: "object" },
         outputSchema: { type: "object" },
         followUpActions: [{ actionId: "example.follow_up" }],
@@ -2657,6 +2945,22 @@ describe("ConnectServer", () => {
         actionId: "example.echo",
       },
     });
+  });
+
+  it.each(["/api", "/v1"])("enforces search limit boundaries on %s", async (prefix) => {
+    const app = createTestServer([{ ...apiKeyProvider, actions: [echoAction] }]).createApp();
+
+    const accepted = await app.request(`${prefix}/actions/search?q=echo&limit=50`);
+    expect(accepted.status).toBe(200);
+
+    const rejected = await app.request(`${prefix}/actions/search?q=echo&limit=51`);
+    expect(rejected.status).toBe(400);
+    const message = "limit must be an integer between 1 and 50.";
+    await expect(rejected.json()).resolves.toMatchObject(
+      prefix === "/api"
+        ? { error: { code: "invalid_input", message } }
+        : { success: false, errorCode: "invalid_input", message },
+    );
   });
 
   it("drops stale action search index hits that are missing from the catalog", async () => {
@@ -3053,7 +3357,15 @@ describe("ConnectServer", () => {
       body: JSON.stringify({ input: { message: "hello" } }),
     };
 
-    expect((await app.request("/v1/actions/example.echo", request)).status).toBe(500);
+    const failed = await app.request("/v1/actions/example.echo", request);
+    expect(failed.status).toBe(500);
+    await expect(failed.json()).resolves.toEqual({
+      success: false,
+      message: "Internal server error.",
+      data: null,
+      errorCode: "internal_error",
+      meta: {},
+    });
     const duplicate = await app.request("/v1/actions/example.echo", request);
     expect(duplicate.status).toBe(409);
     await expect(duplicate.json()).resolves.toMatchObject({
@@ -3167,7 +3479,7 @@ describe("ConnectServer", () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-oomol-connector-alias": "work",
+        "x-oo-connector-alias": "work",
       },
       body: JSON.stringify({ input: {} }),
     });
@@ -3204,7 +3516,7 @@ describe("ConnectServer", () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-oomol-connector-alias": "work",
+        "x-oo-connector-alias": "work",
       },
       body: JSON.stringify({
         endpoint: "/items",
@@ -3232,6 +3544,89 @@ describe("ConnectServer", () => {
         },
       },
       meta: {},
+    });
+  });
+
+  it("propagates HTTP request cancellation to provider proxy execution", async () => {
+    const controller = new AbortController();
+    let proxyStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      proxyStarted = resolve;
+    });
+    let proxySignal: AbortSignal | undefined;
+    const app = createTestServer([apiKeyProvider], {
+      providerLoader: new ProxyProviderLoader(async (_input, context) => {
+        proxySignal = context.signal;
+        proxyStarted?.();
+        await new Promise<void>((_resolve, reject) => {
+          if (!context.signal) {
+            reject(new Error("proxy request signal missing"));
+            return;
+          }
+          context.signal.addEventListener("abort", () => reject(new Error("proxy request aborted")), { once: true });
+        });
+        return { ok: true, response: { status: 200, headers: {}, data: {} } };
+      }),
+    }).createApp();
+
+    await app.request("/api/connections/example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ authType: "api_key", values: { apiKey: "example-key" } }),
+    });
+
+    const responsePromise = app.fetch(
+      new Request("http://localhost/v1/proxy/example", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ endpoint: "/items", method: "GET" }),
+        signal: controller.signal,
+      }),
+    );
+    await started;
+    controller.abort();
+    const response = await responsePromise;
+
+    expect(proxySignal?.aborted).toBe(true);
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      errorCode: "internal_error",
+    });
+  });
+
+  it("reports a provider proxy timeout as HTTP 500 with data.status 504", async () => {
+    const app = createTestServer([apiKeyProvider], {
+      providerLoader: new ProxyProviderLoader(async () => ({
+        // The failure defineProviderProxy returns once its per-request deadline fires.
+        ok: false,
+        error: {
+          code: "provider_error",
+          message: "example request timed out",
+          details: { status: 504, details: undefined },
+        },
+      })),
+    }).createApp();
+
+    await app.request("/api/connections/example", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ authType: "api_key", values: { apiKey: "example-key" } }),
+    });
+
+    const response = await app.request("/v1/proxy/example", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ endpoint: "/items", method: "GET" }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      message: "example request timed out",
+      data: { status: 504 },
+      errorCode: "provider_error",
+      meta: { service: "example" },
     });
   });
 
@@ -3376,15 +3771,13 @@ describe("ConnectServer", () => {
   });
 
   it("uses the injected Node transit upload handler", async () => {
-    const uploadTransitFile = vi.fn(
-      async (): Promise<TransitFileUpload> => ({
-        fileId: `${"a".repeat(32)}.txt`,
-        downloadUrl: `http://localhost:3000/api/files/${"a".repeat(32)}.txt`,
-        sizeBytes: 6,
-        name: "streamed.txt",
-        mimeType: "text/plain",
-      }),
-    );
+    const uploadTransitFile = vi.fn(async (): Promise<TransitFileUpload> => ({
+      fileId: `${"a".repeat(32)}.txt`,
+      downloadUrl: `http://localhost:3000/api/files/${"a".repeat(32)}.txt`,
+      sizeBytes: 6,
+      name: "streamed.txt",
+      mimeType: "text/plain",
+    }));
     const app = createTestServer([apiKeyProvider], { uploadTransitFile }).createApp();
 
     const response = await app.request("/api/files", { method: "POST", body: "stream" });
@@ -3543,7 +3936,9 @@ interface TestAuthOptions {
 }
 
 interface CreateTestServerOptions {
+  marketplace?: MarketplaceService;
   auth?: TestAuthOptions;
+  publicOrigin?: string;
   actionPolicy?: ActionPolicyService;
   actionSearch?: ActionSearchIndexProvider;
   providerLoader?: IProviderLoader;
@@ -3557,13 +3952,16 @@ interface CreateTestServerOptions {
   uploadTransitFile?: (request: Request) => Promise<TransitFileUpload>;
   secretCodec?: ISecretCodec;
   allowedCustomOAuth?: string[];
+  oauthCloseDelaySeconds?: number;
 }
 
 function createTestServer(providers: ProviderDefinition[], options: CreateTestServerOptions = {}): ConnectServer {
+  const requestDatabase = new SqliteRuntimeDatabase(":memory:");
+  requestDatabases.push(requestDatabase);
   const catalog = createCatalogStore(providers, {
     executableActionIds: ["example.echo"],
   });
-  const providerLoader = options.providerLoader ?? new EmptyProviderLoader();
+  const providerLoader: IProviderLoader = options.providerLoader ?? new EmptyProviderLoader();
   const idempotency = options.idempotency ?? new MemoryIdempotencyStore();
   const runtimeTokens = options.runtimeTokens ?? new RuntimeTokenService(new MemoryRuntimeTokenStore());
   const runs = options.runs ?? new MemoryRunLogStore();
@@ -3597,20 +3995,23 @@ function createTestServer(providers: ProviderDefinition[], options: CreateTestSe
     connections,
     runs,
     transitFiles,
-    actionPolicy: options.actionPolicy,
     logger: options.logger,
   });
   const staticRoot = typeof options.staticRoot === "string" ? options.staticRoot : undefined;
 
   return new ConnectServer({
+    marketplace: options.marketplace,
     catalog,
+    publicOrigin: options.publicOrigin ?? "http://localhost:3000",
     providerLoader,
     connections,
     oauthClientConfigs: clientConfigs,
     oauthFlow: new OAuthFlowService({
       clientConfigs,
       connections,
+      providerLoader,
       states: new MemoryOAuthStateStore(),
+      requests: requestDatabase.connectionRequestStore,
       secretCodec: options.secretCodec,
       isCustomClientConfigAllowed,
     }),
@@ -3620,7 +4021,7 @@ function createTestServer(providers: ProviderDefinition[], options: CreateTestSe
     uploadTransitFile: options.uploadTransitFile,
     runtimeTokens,
     runtimePolicyStore: options.runtimePolicyStore ?? new MemoryRuntimePolicyStore(),
-    registerStaticRoutes: staticRoot ? (app) => registerStaticRoutes(app, staticRoot) : undefined,
+    registerStaticRoutes: staticRoot ? (app) => registerStaticRoutes(app, { root: staticRoot }) : undefined,
     auth: {
       ...options.auth,
       hasRuntimeTokens: async () => (await runtimeTokens.listTokens()).length > 0,
@@ -3630,6 +4031,7 @@ function createTestServer(providers: ProviderDefinition[], options: CreateTestSe
     actionPolicy: options.actionPolicy,
     actionSearch: options.actionSearch,
     logger: options.logger,
+    oauthCloseDelaySeconds: options.oauthCloseDelaySeconds,
   });
 }
 
@@ -3826,7 +4228,29 @@ class MemoryConnectionStore implements IConnectionStore {
     return this.store.get(createConnectionKey(service, connectionName));
   }
 
-  async set(service: string, connectionName: string, credential: ResolvedCredential): Promise<StoredConnection> {
+  private readonly retirementGenerations = new Map<string, string>();
+
+  async getRetirementGeneration(service: string, connectionName: string): Promise<string> {
+    const key = JSON.stringify([service, connectionName]);
+    let generation = this.retirementGenerations.get(key);
+    if (!generation) {
+      generation = crypto.randomUUID();
+      this.retirementGenerations.set(key, generation);
+    }
+    return generation;
+  }
+
+  async setIfCurrentGeneration(
+    service: string,
+    connectionName: string,
+    credential: ResolvedCredential,
+    retirementGeneration: string,
+  ) {
+    if ((await this.getRetirementGeneration(service, connectionName)) !== retirementGeneration) return undefined;
+    return this.set(service, connectionName, credential);
+  }
+
+  async set(service: string, connectionName: string, credential: ResolvedCredential) {
     const key = createConnectionKey(service, connectionName);
     const connection = {
       id: this.store.get(key)?.id ?? crypto.randomUUID(),
@@ -3848,6 +4272,7 @@ class MemoryConnectionStore implements IConnectionStore {
   }
 
   async delete(service: string, connectionName: string): Promise<void> {
+    this.retirementGenerations.set(JSON.stringify([service, connectionName]), crypto.randomUUID());
     this.store.delete(createConnectionKey(service, connectionName));
   }
 
@@ -3882,6 +4307,12 @@ class MemoryOAuthClientConfigStore implements IOAuthClientConfigStore {
 
 class MemoryOAuthStateStore implements IOAuthStateStore {
   private readonly states = new Map<string, OAuthAuthorizationState>();
+
+  async deleteCreatedBefore(cutoff: string): Promise<void> {
+    for (const [state, value] of this.states) {
+      if (value.createdAt < cutoff) this.states.delete(state);
+    }
+  }
 
   async set(state: OAuthAuthorizationState): Promise<void> {
     this.states.set(state.state, state);

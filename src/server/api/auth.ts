@@ -5,6 +5,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { isConsoleShellRequest } from "./console-paths.ts";
 import { jsonError } from "./http-utils.ts";
+import { writeRuntimeFailure } from "./runtime-api.ts";
 
 const bearerScheme = "bearer";
 const authCookieName = "oomol_connect_admin_session";
@@ -18,6 +19,8 @@ const authCookieMaxAgeMs = authCookieMaxAgeSeconds * 1000;
 export interface LocalAuthOptions {
   adminToken?: string;
   runtimeToken?: string;
+  /** Keep runtime endpoints protected even when the last stored token is revoked. */
+  requireRuntimeAuth?: boolean;
   hasRuntimeTokens?(): Promise<boolean>;
   resolveRuntimeToken?(token: string): Promise<RuntimeGrant | undefined>;
   verifyRuntimeJwt?: RuntimeJwtVerifier;
@@ -29,6 +32,12 @@ export interface LocalAuthSession {
 }
 
 type AuthScope = "admin" | "runtime";
+
+const adminBearerRequests = new WeakSet<Request>();
+
+export function hasAdminBearer(context: Context): boolean {
+  return adminBearerRequests.has(context.req.raw);
+}
 
 const runtimeGrants = new WeakMap<Request, RuntimeGrant>();
 
@@ -42,6 +51,7 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
   if (
     !adminToken &&
     !runtimeToken &&
+    !options.requireRuntimeAuth &&
     !options.hasRuntimeTokens &&
     !options.resolveRuntimeToken &&
     !options.verifyRuntimeJwt
@@ -58,6 +68,20 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
       return;
     }
 
+    if (
+      isConnectionManagementPath(context.req.path) &&
+      !adminToken &&
+      (runtimeToken ||
+        options.verifyRuntimeJwt ||
+        (options.hasRuntimeTokens ? await options.hasRuntimeTokens() : options.resolveRuntimeToken !== undefined))
+    ) {
+      return writeRuntimeFailure(context, {
+        status: 403,
+        errorCode: "forbidden",
+        message: "Configure an admin token to manage connections.",
+      });
+    }
+    if (adminToken && matchesConfiguredToken(context, adminToken)) adminBearerRequests.add(context.req.raw);
     if (await hasValidToken(context, options, scope)) {
       if (scope === "admin") {
         await installAdminCookieForBearer(context, options);
@@ -79,6 +103,20 @@ export function createLocalAuthMiddleware(options: LocalAuthOptions): Middleware
       return;
     }
 
+    if (isConnectionManagementPath(context.req.path)) {
+      return writeRuntimeFailure(context, {
+        status: 401,
+        errorCode: "unauthorized",
+        message: "A valid administrator bearer token is required.",
+      });
+    }
+    if (context.req.path.startsWith("/v1/")) {
+      return writeRuntimeFailure(context, {
+        status: 401,
+        errorCode: "unauthorized",
+        message: "A valid local bearer token is required.",
+      });
+    }
     return jsonError(context, 401, "unauthorized", "A valid local bearer token is required.");
   };
 }
@@ -101,6 +139,7 @@ async function installLocalAuthCookie(context: Context, options: LocalAuthOption
 function isPublicPath(path: string, method: string): boolean {
   return (
     path === "/health" ||
+    (method === "GET" && path === "/oauth/saas/complete") ||
     path === "/oauth/callback" ||
     path.startsWith("/oauth/callback/") ||
     (method === "GET" && path === "/api/auth/session") ||
@@ -152,7 +191,7 @@ async function hasValidToken(context: Context, options: LocalAuthOptions, scope:
     const hasRuntimeTokens = options.hasRuntimeTokens
       ? await options.hasRuntimeTokens()
       : options.resolveRuntimeToken !== undefined;
-    if (!hasRuntimeTokens && !options.verifyRuntimeJwt) {
+    if (!options.requireRuntimeAuth && !hasRuntimeTokens && !options.verifyRuntimeJwt) {
       return true;
     }
     return hasValidRuntimeToken(context, options);
@@ -166,7 +205,8 @@ async function hasValidToken(context: Context, options: LocalAuthOptions, scope:
 }
 
 async function hasRequestToken(context: Context, token: string): Promise<boolean> {
-  return matchesConfiguredToken(context, token) || (await hasValidAuthCookie(context, token));
+  if (context.req.header("authorization") !== undefined) return matchesConfiguredToken(context, token);
+  return await hasValidAuthCookie(context, token);
 }
 
 async function hasValidAuthCookie(context: Context, token: string): Promise<boolean> {
@@ -237,6 +277,7 @@ function normalizeToken(token: string | undefined): string | undefined {
 }
 
 function readAuthScope(path: string): AuthScope {
+  if (isConnectionManagementPath(path)) return "admin";
   return path === "/mcp" || path.startsWith("/mcp/") || path === "/v1" || path.startsWith("/v1/") ? "runtime" : "admin";
 }
 
@@ -281,4 +322,15 @@ function readBearerCredential(context: Context): string {
   }
 
   return authorization.slice(separator + 1);
+}
+
+function isConnectionManagementPath(path: string): boolean {
+  return (
+    /^\/v1\/providers\/[^/]+\/setup$/.test(path) ||
+    path === "/v1/connections" ||
+    path.startsWith("/v1/connections/") ||
+    path.startsWith("/v1/connection-requests/") ||
+    path === "/api/oauth/connection-requests" ||
+    path.startsWith("/api/oauth/connection-requests/")
+  );
 }

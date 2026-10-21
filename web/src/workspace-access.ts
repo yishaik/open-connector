@@ -12,9 +12,10 @@ export function permittedAccounts(
 ): ConnectionRecord[] {
   return usableConnectionsForService(data.connections, provider.service).filter(
     (connection) =>
-      connection.authType === "no_auth" ||
-      token.allowedConnections.length === 0 ||
-      Boolean(connection.id && token.allowedConnections.includes(connection.id)),
+      connection.status !== "reauth_required" &&
+      (connection.authType === "no_auth" ||
+        token.allowedConnections.length === 0 ||
+        Boolean(connection.id && token.allowedConnections.includes(connection.id))),
   );
 }
 

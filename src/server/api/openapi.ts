@@ -1,11 +1,14 @@
 import type { ActionDefinition, JsonSchema, ProviderDefinition } from "../../core/types.ts";
 
+import { z } from "zod";
 import { jsonSchema } from "../../core/json-schema.ts";
+import { triggerOperationSchema } from "../../triggers/request.ts";
 import {
   actionInputMaxDepth,
   idempotencyKeyMaxBytes,
   idempotencyRetentionHours,
 } from "../actions/action-idempotency.ts";
+import { oauthConnectionInput, apiKeyConnectionInput, customConnectionInput } from "./connection-input.ts";
 import { policyRequestMaxBytes, policyRuleListMaxItems, policyRuleMaxBytes } from "./policy-input.ts";
 
 /**
@@ -58,7 +61,10 @@ const errorResponseSchema = jsonSchema.object(
 
 const actionResultMetaSchema = jsonSchema.object(
   {
-    executionId: jsonSchema.string({ description: "Action execution identifier." }),
+    executionId: jsonSchema.string({ description: "Local action execution identifier." }),
+    remoteExecutionId: jsonSchema.string({
+      description: "SaaS execution identifier when available; distinct from the local executionId.",
+    }),
     actionId: jsonSchema.string({ description: "Executed action identifier." }),
     auditPersisted: jsonSchema.boolean({ description: "Whether the run audit record was stored." }),
   },
@@ -71,6 +77,9 @@ const actionResultMetaSchema = jsonSchema.object(
 const actionFailureMetaSchema = jsonSchema.object(
   {
     executionId: jsonSchema.string({ description: "Execution identifier when action execution began." }),
+    remoteExecutionId: jsonSchema.string({
+      description: "SaaS execution identifier when the remote failure supplies one.",
+    }),
     actionId: jsonSchema.string({ description: "Requested action identifier." }),
     auditPersisted: jsonSchema.boolean({ description: "Whether the run audit record was stored." }),
   },
@@ -88,7 +97,12 @@ const oauthClientConfigRequestSchema = jsonSchema.object(
     }),
     requestedScopes: jsonSchema.array(jsonSchema.string(), {
       minItems: 1,
-      description: "Non-empty provider-declared scope subset to request. Omit to use every provider default.",
+      description:
+        "Complete non-empty scope list replacing the provider defaults. Each scope must be declared in scopes or optionalScopes. Omit to request every default scope and no optional scopes.",
+    }),
+    redirectUri: jsonSchema.string({
+      description:
+        "Absolute redirect URI registered with the provider instead of the runtime callback, such as a native app's custom scheme. Must not carry user info or a fragment; javascript, vbscript, data, file, blob, and about schemes are rejected. Omit or send an empty string to use the runtime callback.",
     }),
     extra: {
       type: "object",
@@ -107,6 +121,9 @@ const oauthClientConfigRequestSchema = jsonSchema.object(
   },
 );
 
+const saasExecutionDescription =
+  "SaaS connections execute remotely after local policy and input validation, using the selected account without local credentials or fallback. SaaS execution POSTs have a 300-second budget and a 64 MiB decoded JSON envelope limit. Responses retain the local executionId and add remoteExecutionId when available. Cancellation or a failed response does not guarantee that remote side effects were undone. ";
+
 const actionIdempotencyDescription =
   `Requests with the same Idempotency-Key, action, input, effective connection, and stored runtime token identity replay the original HTTP status and body of completed successes and failures during the ${idempotencyRetentionHours}-hour replay window. ` +
   "Requests that are still in progress, or whose outcome is uncertain, are not automatically dispatched again. " +
@@ -123,6 +140,14 @@ const namedConnectionDescription =
   "Named connection. Same fact as MCP connectionName; HTTP alias, connectionName, and x-oo-connector-alias are equivalent. Defaults to default.";
 
 const namedConnectionParameters = [
+  {
+    name: "x-oo-connector-app-id",
+    in: "header",
+    required: false,
+    schema: jsonSchema.string(),
+    description:
+      "Stable connection ID. If an alias is also supplied it must identify the same connection. Unknown IDs never select the default account.",
+  },
   {
     name: "x-oo-connector-alias",
     in: "header",
@@ -161,6 +186,34 @@ const idempotencyKeyParameter = {
 
 const idempotencyConflictDescription =
   "For idempotency, idempotency_request_in_progress means the original request is still running or its outcome is uncertain, while idempotency_key_conflict means the key was reused for a different action, input, effective connection, or stored runtime token. Other runtime conflicts may return their own error code with the same status.";
+
+const runtimeConnectionProperties: Record<string, JsonSchema> = {
+  id: jsonSchema.string({ description: "Stable local connection identifier." }),
+  providerAccountId: jsonSchema.string({
+    description: "Provider account identity from the stored credential profile.",
+  }),
+  service: jsonSchema.string({ description: "Provider service identifier." }),
+  status: { type: "string", enum: ["active", "disconnected"] },
+  alias: jsonSchema.string({ description: namedConnectionDescription }),
+  authType: jsonSchema.string({ description: "Connection authentication type." }),
+  displayName: jsonSchema.string({ description: "Human-readable account label." }),
+  accountLabel: jsonSchema.string({
+    description: "Same value as displayName. Kept for existing /v1 clients.",
+  }),
+  isDefault: jsonSchema.boolean({
+    description: "Whether this is the default connection. Same fact as MCP default.",
+  }),
+  scopes: jsonSchema.array(jsonSchema.string(), {
+    description: "Granted scopes. Same fact as MCP profile.grantedScopes.",
+  }),
+  marketplace: jsonSchema.object(
+    {
+      id: jsonSchema.string({ description: "Marketplace identifier." }),
+      pricing: { type: "string", enum: ["free", "metered"] },
+    },
+    { required: ["id", "pricing"], description: "Marketplace source for a virtual connection." },
+  ),
+};
 
 /**
  * Build OpenAPI docs from the generated catalog.
@@ -265,6 +318,7 @@ export function createOpenApiDocument(
       data: jsonSchema.array({ $ref: "#/components/schemas/ActionSearchResult" }),
       errorStatuses: [400],
     }),
+    ...connectionManagementPaths(),
     "/v1/apps": runtimeGetOperation("Connections", "List connected accounts.", {
       description:
         "RuntimeConnectedApp rows, not the provider catalog. Use GET /v1/providers or MCP list_apps for providers.",
@@ -322,6 +376,70 @@ export function createOpenApiDocument(
     "/api/files/{fileId}": createTransitFilePath(),
     "/v1/actions/{actionId}": runPath,
     "/v1/proxy/{service}": createProxyPath(),
+    "/v1/providers/{service}/trigger-permissions": runtimeGetOperation(
+      "Triggers",
+      "Read provider-native Trigger permission guidance.",
+      {
+        data: { type: "array", items: { type: "object", additionalProperties: true } },
+        parameters: [{ name: "service", in: "path", required: true, schema: jsonSchema.string() }],
+        errorStatuses: [401, 404],
+      },
+    ),
+    "/v1/providers/{service}/triggers/{triggerId}/execute": {
+      post: {
+        tags: ["Triggers"],
+        summary: "Execute a registered Provider Trigger operation.",
+        description:
+          "Requires independent Trigger grants. Stateful operations require a persistent runtime token and native local connection; remote state and credentials stay server-owned.",
+        parameters: [
+          { name: "service", in: "path", required: true, schema: jsonSchema.string() },
+          { name: "triggerId", in: "path", required: true, schema: jsonSchema.string() },
+          ...namedConnectionParameters,
+        ],
+        requestBody: { required: true, content: { "application/json": { schema: triggerOperationSchema() } } },
+        responses: {
+          200: jsonResponse(runtimeSuccessSchema({})),
+          400: jsonResponse(runtimeFailureSchema()),
+          401: jsonResponse(runtimeFailureSchema()),
+          403: jsonResponse(runtimeFailureSchema()),
+          404: jsonResponse(runtimeFailureSchema()),
+          409: jsonResponse(runtimeFailureSchema()),
+          413: jsonResponse(runtimeFailureSchema()),
+          501: jsonResponse(runtimeFailureSchema()),
+          503: jsonResponse(runtimeFailureSchema()),
+        },
+      },
+    },
+    "/api/trigger-subscriptions": getOperation(
+      "Triggers",
+      "List owned subscriptions and cleanup status without secrets.",
+      { type: "array", items: { type: "object", additionalProperties: true } },
+    ),
+    "/api/trigger-subscriptions/{id}/cancel": {
+      post: {
+        tags: ["Triggers"],
+        summary: "Cancel a subscription with retained original credentials.",
+        parameters: [{ name: "id", in: "path", required: true, schema: jsonSchema.string() }],
+        responses: {
+          200: jsonResponse(jsonSchema.object({ ok: jsonSchema.boolean() })),
+          404: jsonResponse(errorResponseSchema),
+          409: jsonResponse(errorResponseSchema),
+          503: jsonResponse(errorResponseSchema),
+        },
+      },
+    },
+    "/api/trigger-subscriptions/{id}/abandon": {
+      post: {
+        tags: ["Triggers"],
+        summary: "Explicitly abandon automatic cleanup; retain the uncleaned remote-resource record.",
+        parameters: [{ name: "id", in: "path", required: true, schema: jsonSchema.string() }],
+        responses: {
+          200: jsonResponse(jsonSchema.object({ ok: jsonSchema.boolean() })),
+          404: jsonResponse(errorResponseSchema),
+          409: jsonResponse(errorResponseSchema),
+        },
+      },
+    },
     "/api/runs": createRunsPath(),
     "/api/runs/{id}": createRunDetailPath(),
     "/mcp": createMcpPath(),
@@ -348,7 +466,11 @@ export function createOpenApiDocument(
       { name: "Access", description: "Runtime execution policy and bearer tokens for /v1 and MCP clients." },
       { name: "Files", description: "Local temporary file transit for provider actions." },
       { name: "Runs", description: "Local action execution and recent run history." },
-      { name: "Proxy", description: "Provider API proxy requests through local credentials." },
+      {
+        name: "Triggers",
+        description: "Registered provider Trigger operations and owned remote subscription cleanup.",
+      },
+      { name: "Proxy", description: "Provider API proxy requests using the selected local or SaaS connection." },
       { name: "MCP", description: "Stateless MCP POST endpoint and tool metadata." },
     ],
     paths,
@@ -375,6 +497,11 @@ export function createOpenApiDocument(
             service: jsonSchema.string({ description: "The provider service that owns the action." }),
             name: jsonSchema.string({ description: "The provider-scoped action name." }),
             description: jsonSchema.string({ description: "The action description." }),
+            operationType: {
+              type: "string",
+              enum: ["read", "write", "destructive"],
+              description: "Whether the action reads, changes, or destructively changes provider state.",
+            },
             authenticated: jsonSchema.boolean({
               description: "Whether the provider service has an authenticated local connection.",
             }),
@@ -382,11 +509,19 @@ export function createOpenApiDocument(
             outputSchema: jsonSchema.unknownObject("The normalized JSON Schema for the action output."),
           },
           {
-            required: ["id", "service", "name", "description", "authenticated", "inputSchema", "outputSchema"],
+            required: [
+              "id",
+              "service",
+              "name",
+              "description",
+              "operationType",
+              "authenticated",
+              "inputSchema",
+              "outputSchema",
+            ],
             description: "A single action returned by fuzzy keyword search.",
           },
         ),
-        ActionSearchRuntimeResult: { $ref: "#/components/schemas/ActionSearchResult" },
         RuntimeProviderMetadata: jsonSchema.object(
           {
             service: jsonSchema.string({ description: "Provider service identifier." }),
@@ -425,6 +560,11 @@ export function createOpenApiDocument(
             service: jsonSchema.string({ description: "Provider service that owns the action." }),
             name: jsonSchema.string({ description: "Provider-scoped action name." }),
             description: jsonSchema.string({ description: "Action description." }),
+            operationType: {
+              type: "string",
+              enum: ["read", "write", "destructive"],
+              description: "Whether the action reads, changes, or destructively changes provider state.",
+            },
             requiredScopes: jsonSchema.array(jsonSchema.string()),
             providerPermissions: jsonSchema.array(jsonSchema.string()),
             inputSchema: jsonSchema.unknownObject("Normalized JSON Schema for the action input."),
@@ -462,6 +602,7 @@ export function createOpenApiDocument(
               "service",
               "name",
               "description",
+              "operationType",
               "requiredScopes",
               "providerPermissions",
               "inputSchema",
@@ -473,45 +614,32 @@ export function createOpenApiDocument(
             description: "Public runtime action metadata.",
           },
         ),
-        RuntimeConnectedApp: jsonSchema.object(
-          {
-            id: jsonSchema.string({ description: "Stable local connection identifier." }),
-            service: jsonSchema.string({ description: "Provider service identifier." }),
-            status: { type: "string", enum: ["active", "disconnected"] },
-            alias: jsonSchema.string({ description: namedConnectionDescription }),
-            authType: jsonSchema.string({ description: "Connection authentication type." }),
-            displayName: jsonSchema.string({ description: "Human-readable account label." }),
-            accountLabel: jsonSchema.string({
-              description: "Same value as displayName. Kept for existing /v1 clients.",
-            }),
-            isDefault: jsonSchema.boolean({
-              description: "Whether this is the default connection. Same fact as MCP default.",
-            }),
-            scopes: jsonSchema.array(jsonSchema.string(), {
-              description: "Granted scopes. Same fact as MCP profile.grantedScopes.",
-            }),
-          },
-          {
-            required: [
-              "id",
-              "service",
-              "status",
-              "alias",
-              "authType",
-              "displayName",
-              "accountLabel",
-              "isDefault",
-              "scopes",
-            ],
-            description: "Connected account from GET /v1/apps.",
-          },
-        ),
+        RuntimeConnectedApp: jsonSchema.object(runtimeConnectionProperties, {
+          required: [
+            "id",
+            "service",
+            "status",
+            "alias",
+            "authType",
+            "displayName",
+            "accountLabel",
+            "isDefault",
+            "scopes",
+          ],
+          description: "Connected account from GET /v1/apps.",
+        }),
         ConnectionSummary: jsonSchema.object(
           {
             id: jsonSchema.string({ description: "Stable local connection identifier." }),
+            providerAccountId: jsonSchema.string({
+              description: "Provider account identity from the stored credential profile.",
+            }),
             service: jsonSchema.string({ description: "Provider service identifier." }),
             authType: jsonSchema.string({ description: "Connection authentication type." }),
             configured: jsonSchema.boolean({ description: "Whether the provider is connected." }),
+            oauthAuthorizationId: jsonSchema.string({
+              description: "Completed OAuth consent state. Omitted for legacy and non-OAuth connections.",
+            }),
             virtual: jsonSchema.boolean({
               description: "Whether the connection needs no stored secret.",
             }),
@@ -553,8 +681,14 @@ export function createOpenApiDocument(
             }),
             clientId: jsonSchema.nullable(jsonSchema.string({ description: "Configured OAuth client id." })),
             expectedRedirectUri: jsonSchema.string({
-              description: "Callback URL to configure in the provider OAuth app.",
+              description:
+                "Callback URL to configure in the provider OAuth app: the configured override, else the runtime callback.",
             }),
+            redirectUri: jsonSchema.nullable(
+              jsonSchema.string({
+                description: "Configured redirect URI override, or null when the runtime callback is used.",
+              }),
+            ),
             auth: jsonSchema.unknownObject("Provider OAuth capability metadata."),
             requestedScopes: jsonSchema.nullable(
               jsonSchema.array(jsonSchema.string(), {
@@ -572,6 +706,7 @@ export function createOpenApiDocument(
               "customClientAvailable",
               "clientId",
               "expectedRedirectUri",
+              "redirectUri",
               "auth",
               "requestedScopes",
               "effectiveScopes",
@@ -589,6 +724,9 @@ export function createOpenApiDocument(
             allowedProxies: policyRuleArraySchema(
               "Provider proxies explicitly granted to this token. An empty list grants no proxy access.",
             ),
+            allowedTriggers: policyRuleArraySchema(
+              "Trigger IDs explicitly granted to this token. Omit or leave empty to deny all Trigger operations.",
+            ),
             allowedConnections: connectionIdArraySchema(
               "Stable connection IDs granted to this stored runtime token. An empty list is unrestricted connection access. IDs are opaque values returned by the connection APIs. Virtual no_auth connections do not require grants.",
             ),
@@ -603,6 +741,7 @@ export function createOpenApiDocument(
               "blockedActions",
               "allowedProxies",
               "allowedConnections",
+              "allowedTriggers",
               "createdAt",
             ],
             description: "Runtime API token summary. Plaintext tokens and token hashes are not returned.",
@@ -615,6 +754,9 @@ export function createOpenApiDocument(
             blockedActions: policyRuleArraySchema("Optional action block rules for the new token."),
             allowedProxies: policyRuleArraySchema(
               "Optional provider proxy grants for the new token. Omit or leave empty to deny proxy access.",
+            ),
+            allowedTriggers: policyRuleArraySchema(
+              "Trigger IDs explicitly granted to this token. Omit or leave empty to deny all Trigger operations.",
             ),
             allowedConnections: connectionIdArraySchema(
               "Optional stable connection IDs granted to the new token. Omit or leave empty for unrestricted connection access. A non-empty list matches exact opaque IDs returned by the connection APIs. Virtual no_auth connections do not require grants.",
@@ -632,6 +774,9 @@ export function createOpenApiDocument(
             allowedProxies: policyRuleArraySchema(
               "Provider proxies explicitly granted to this token. An empty list grants no proxy access.",
             ),
+            allowedTriggers: policyRuleArraySchema(
+              "Trigger IDs explicitly granted to this token. Omit or leave empty to deny all Trigger operations.",
+            ),
             allowedConnections: connectionIdArraySchema(
               "Stable connection IDs granted to this stored token. An empty list is unrestricted connection access. A non-empty list matches exact opaque IDs returned by the connection APIs. Virtual no_auth connections do not require grants.",
             ),
@@ -639,7 +784,7 @@ export function createOpenApiDocument(
           {
             required: ["allowedActions", "blockedActions", "allowedProxies", "allowedConnections"],
             description:
-              "Complete replacement of one stored runtime token's action, proxy, and connection permissions.",
+              "Complete replacement of one stored runtime token's Action, Trigger, proxy, and connection permissions.",
           },
         ),
         PolicyRules: policyRulesSchema(),
@@ -716,7 +861,6 @@ export function createOpenApiDocument(
             completedAt: jsonSchema.string({ description: "Completion timestamp." }),
             durationMs: jsonSchema.number({ description: "Run duration in milliseconds." }),
             ok: jsonSchema.boolean({ description: "Whether the run succeeded." }),
-            connectionName: jsonSchema.string({ description: "Named provider connection used by the action." }),
             connectionProfile: jsonSchema.unknownObject(
               "Provider account identity that the action used, when a connection was available.",
             ),
@@ -941,7 +1085,7 @@ function createRuntimePolicyPath(): Record<string, unknown> {
     },
     put: {
       tags: ["Access"],
-      summary: "Replace the persisted Runtime action and proxy policy.",
+      summary: "Replace the persisted Runtime Action, Trigger, and proxy policy.",
       description: `Deployment policy remains read-only. Block rules take precedence and non-empty allowlists intersect. Policy request bodies must not exceed ${policyRequestMaxBytes} bytes.`,
       requestBody: {
         required: true,
@@ -967,6 +1111,10 @@ function policyRulesSchema(): JsonSchema {
       allowedActions: policyRuleArraySchema("Action allow rules."),
       blockedActions: policyRuleArraySchema("Action block rules."),
       allowedProxies: policyRuleArraySchema("Proxy service allow rules."),
+      allowedTriggers: policyRuleArraySchema(
+        "Trigger allow rules. Non-empty allowlists intersect across policy layers.",
+      ),
+      blockedTriggers: policyRuleArraySchema("Trigger block rules override all grants."),
       blockedProxies: policyRuleArraySchema("Proxy service block rules."),
     },
     {
@@ -1116,6 +1264,7 @@ function createRunPath(): Record<string, unknown> {
       summary: "Execute a runtime action.",
       description:
         "Use the action catalog to discover provider-specific input and output schemas. For a compact strongly typed OpenAPI document for one action, request /openapi.json?actionId=<actionId>. " +
+        saasExecutionDescription +
         actionIdempotencyDescription,
       parameters: [actionIdParameter, idempotencyKeyParameter, ...namedConnectionParameters],
       requestBody: actionRunBody(
@@ -1133,7 +1282,7 @@ function createProxyPath(): Record<string, unknown> {
       tags: ["Proxy"],
       summary: "Proxy one provider API request.",
       description:
-        "For providers with a local proxy executor, forwards a provider-relative HTTP request and applies stored provider credentials locally.",
+        "Executes through the selected connection. Local connections use the local provider proxy; SaaS connections use the project proxy without loading local credentials. SaaS accepts GET/POST/PUT/PATCH/DELETE, primitive query values, string non-authentication headers and JSON/text bodies only; accessGrant and unknown fields are rejected. SaaS execution has a 300-second POST budget and a 64 MiB decoded JSON envelope limit, preserves the upstream status inside data.status, and supplies distinct local executionId and remoteExecutionId in meta. Failed or cancelled calls are never automatically replayed; remote side effects may have completed.",
       parameters: [
         {
           name: "service",
@@ -1151,7 +1300,7 @@ function createProxyPath(): Record<string, unknown> {
               {
                 endpoint: jsonSchema.string({ description: "Provider-relative path beginning with /." }),
                 method: jsonSchema.string({
-                  description: "HTTP method: DELETE, GET, HEAD, PATCH, POST, or PUT.",
+                  description: "HTTP method: DELETE, GET, HEAD, PATCH, POST, or PUT. SaaS connections reject HEAD.",
                 }),
                 query: {
                   type: "object",
@@ -1186,7 +1335,8 @@ function createProxyPath(): Record<string, unknown> {
                   description: "Provider response headers.",
                 },
                 bodyEncoding: jsonSchema.string({
-                  description: "Present as base64 when the provider response is binary.",
+                  description:
+                    "Present as base64 when a local provider response is binary. SaaS proxy supports JSON/text responses and omits this field.",
                 }),
                 data: jsonSchema.unknown("Provider response payload."),
               },
@@ -1198,6 +1348,7 @@ function createProxyPath(): Record<string, unknown> {
           ),
         ),
         400: jsonResponse(runtimeFailureSchema()),
+        402: jsonResponse(runtimeFailureSchema()),
         403: jsonResponse(runtimeFailureSchema()),
         404: jsonResponse(runtimeFailureSchema()),
         409: jsonResponse(runtimeFailureSchema()),
@@ -1205,6 +1356,9 @@ function createProxyPath(): Record<string, unknown> {
         429: jsonResponse(runtimeFailureSchema()),
         500: jsonResponse(runtimeFailureSchema()),
         501: jsonResponse(runtimeFailureSchema()),
+        502: jsonResponse(runtimeFailureSchema()),
+        503: jsonResponse(runtimeFailureSchema()),
+        504: jsonResponse(runtimeFailureSchema()),
       },
     },
   };
@@ -1234,6 +1388,22 @@ function createConnectionPath(): Record<string, unknown> {
     delete: {
       tags: ["Connections"],
       summary: "Disconnect a provider.",
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: jsonSchema.object({
+              connectionName: jsonSchema.string("Named connection. Defaults to default."),
+              revoke: {
+                type: "boolean",
+                default: false,
+                description:
+                  "Also request OAuth token revocation after deleting the local credential. Related connections may lose authorization depending on the provider's revocation policy.",
+              },
+            }),
+          },
+        },
+      },
       responses: {
         200: jsonResponse({
           anyOf: [
@@ -1242,9 +1412,13 @@ function createConnectionPath(): Record<string, unknown> {
               {
                 service: jsonSchema.string(),
                 configured: { const: false, type: "boolean" },
+                revoked: jsonSchema.stringEnum(
+                  "What the disconnect did about the grant at the provider: done (its revocation endpoint accepted the token), failed (it refused or could not be reached; the credential is deleted here regardless), unsupported (no revocation endpoint declared, no OAuth token held, or a SaaS connection) or skipped (the request body did not set revoke: true, the default).",
+                  ["done", "failed", "unsupported", "skipped"],
+                ),
               },
               {
-                required: ["service", "configured"],
+                required: ["service", "configured", "revoked"],
                 description: "Disconnected provider summary.",
               },
             ),
@@ -1279,7 +1453,15 @@ function createOAuthAuthorizationPath(): Record<string, unknown> {
                 }),
                 requestedScopes: jsonSchema.array(jsonSchema.string(), {
                   minItems: 1,
-                  description: "Optional non-empty provider-declared scope subset to request.",
+                  description:
+                    "Optional complete non-empty scope list replacing the provider defaults. Each scope must be declared in scopes or optionalScopes; default scopes are not added automatically.",
+                }),
+                redirectUri: jsonSchema.string({
+                  description:
+                    "Optional redirect URI registered with the connection-scoped OAuth app instead of the runtime callback. Same rules as OAuthClientConfigRequest.redirectUri.",
+                }),
+                authorizationOptionIds: jsonSchema.array(jsonSchema.string(), {
+                  description: "Optional provider authorization option ids selected for this connection.",
                 }),
                 extra: {
                   type: "object",
@@ -1327,7 +1509,7 @@ function createOAuthConfigPath(): Record<string, unknown> {
       tags: ["OAuth"],
       summary: "Upsert local OAuth client configuration.",
       description:
-        "Open-source users provide their own OAuth app. requestedScopes may narrow the provider-declared defaults but cannot add scopes. Additional extra fields are declared by provider catalog auth metadata.",
+        "Open-source users provide their own OAuth app. requestedScopes replaces the default scope list with an explicit selection from the provider's scopes and optionalScopes; default scopes are not added automatically. Omit it to use the defaults without optional scopes. Undeclared scopes are refused. Additional extra fields are declared by provider catalog auth metadata.",
       requestBody: {
         required: true,
         content: {
@@ -1381,7 +1563,7 @@ interface RuntimeGetOperationOptions {
   data: JsonSchema;
   description?: string;
   parameters?: unknown[];
-  errorStatuses?: Array<400 | 404>;
+  errorStatuses?: Array<400 | 401 | 403 | 404 | 409 | 429 | 502 | 503 | 504>;
 }
 
 function runtimeGetOperation(
@@ -1438,11 +1620,17 @@ function actionRunResponses(output: JsonSchema): Record<string, unknown> {
   return {
     200: jsonResponse(runtimeSuccessSchema(output, actionResultMetaSchema)),
     400: jsonResponse(failure, "invalid_input, action_blocked, or action_not_allowed."),
+    402: jsonResponse(failure, "insufficient_credit."),
     403: jsonResponse(failure, "authorization_failed."),
     404: jsonResponse(failure, "unknown_action or connection_not_found."),
     409: jsonResponse(failure, idempotencyConflictDescription),
+    413: jsonResponse(failure, "The provider response exceeded the runtime size limit, or the upstream answered 413."),
     429: jsonResponse(failure),
     500: jsonResponse(failure),
+    501: jsonResponse(failure),
+    502: jsonResponse(failure, "SaaS upstream, protocol or response size failure; execution may have completed."),
+    503: jsonResponse(failure, "SaaS project credentials or execution are unavailable."),
+    504: jsonResponse(failure, "SaaS execution timed out; execution may have completed."),
   };
 }
 
@@ -1472,7 +1660,7 @@ function createConcreteRunOperation(action: ActionDefinition): Record<string, un
   return {
     tags: ["Runs"],
     summary: `Execute ${action.id}.`,
-    description: `${action.description} ${actionIdempotencyDescription}`,
+    description: `${action.description} ${saasExecutionDescription}${actionIdempotencyDescription}`,
     parameters: [actionIdParameter, idempotencyKeyParameter, ...namedConnectionParameters],
     requestBody: actionRunBody(
       action.inputSchema,
@@ -1525,4 +1713,180 @@ function jsonResponse(schema: JsonSchema, description = "JSON response."): Recor
       },
     },
   };
+}
+
+function connectionManagementPaths(): Record<string, unknown> {
+  const app = jsonSchema.object("A stored connection visible to the administrator.", {
+    ...runtimeConnectionProperties,
+    status: jsonSchema.stringEnum("Current connection state.", ["active", "reauth_required", "error", "disconnected"]),
+    providerAccountId: jsonSchema.string("The provider account identifier."),
+    comment: jsonSchema.nullableString("An optional administrator note."),
+  });
+  const start = jsonSchema.object("An OAuth authorization attempt. Poll connectionRequestId to obtain its result.", {
+    authorizationUrl: jsonSchema.string(),
+    stateHandle: jsonSchema.string(),
+    connectionRequestId: jsonSchema.string(),
+    status: jsonSchema.literal("initiated"),
+    expiresAt: jsonSchema.string(),
+  });
+  const request = jsonSchema.object(
+    "One authorization attempt; results remain available until expiresAt plus 24 hours.",
+    {
+      connectionRequestId: jsonSchema.string(),
+      service: jsonSchema.string(),
+      status: jsonSchema.stringEnum("Authorization request status.", ["initiated", "connected", "failed", "expired"]),
+      appId: jsonSchema.nullableString("The exact connection created or reconnected."),
+      errorCode: jsonSchema.nullableString("Safe failure code, including request_superseded."),
+      errorMessage: jsonSchema.nullableString("Safe failure message."),
+      expiresAt: jsonSchema.string(),
+      createdAt: jsonSchema.number(),
+      updatedAt: jsonSchema.number(),
+    },
+  );
+  const field = jsonSchema.object("One input a connection or OAuth client form asks for.", {
+    key: jsonSchema.string(),
+    label: jsonSchema.string(),
+    inputType: jsonSchema.stringEnum("Suggested form control.", ["text", "password", "textarea", "json"]),
+    required: jsonSchema.boolean(),
+    secret: jsonSchema.boolean("Whether the value is stored as a secret and never returned."),
+    placeholder: jsonSchema.optional(jsonSchema.string("Input placeholder.")),
+    description: jsonSchema.optional(jsonSchema.string("Where the user obtains this value.")),
+    location: jsonSchema.optional(
+      jsonSchema.stringEnum(
+        "Request object an OAuth client field is submitted in; absent for clientId and clientSecret.",
+        ["extra", "secretExtra"],
+      ),
+    ),
+    defaultValue: jsonSchema.optional(jsonSchema.string("Value applied when an OAuth client field is omitted.")),
+  });
+  const authorizationOption = jsonSchema.object("One selectable authorization option.", {
+    id: jsonSchema.string(),
+    label: jsonSchema.string(),
+    description: jsonSchema.string(),
+    required: jsonSchema.boolean(),
+    defaultSelected: jsonSchema.boolean(),
+    risk: jsonSchema.stringEnum("How much access the option grants.", ["standard", "sensitive", "destructive"]),
+    requires: jsonSchema.optional(jsonSchema.stringArray("Option ids that must be selected together with this one.")),
+  });
+  const setup = jsonSchema.object("Setup requirements and OAuth client state for one provider, without saved values.", {
+    service: jsonSchema.string(),
+    auth: jsonSchema.array(
+      jsonSchema.object("One supported credential type with its form metadata.", {
+        type: jsonSchema.stringEnum("Credential type.", ["no_auth", "api_key", "custom_credential", "oauth2"]),
+        label: jsonSchema.optional(
+          jsonSchema.string("Provider-declared display name for this auth mode, e.g. Service Account."),
+        ),
+        description: jsonSchema.optional(
+          jsonSchema.string("Provider-declared help text describing when to use this auth mode."),
+        ),
+        fields: jsonSchema.optional(jsonSchema.array(field)),
+        clientFields: jsonSchema.optional(jsonSchema.array(field)),
+        clientSetup: jsonSchema.optional(
+          jsonSchema.object("How to register the provider OAuth app.", {
+            docsUrl: jsonSchema.optional(jsonSchema.string("Provider page where the OAuth app is registered.")),
+            steps: jsonSchema.stringArray("Ordered setup steps."),
+          }),
+        ),
+        scopes: jsonSchema.optional(
+          jsonSchema.stringArray("Default provider scopes when no explicit selection is made."),
+        ),
+        optionalScopes: jsonSchema.optional(
+          jsonSchema.stringArray(
+            "Additional provider scopes for explicit selection. requestedScopes replaces the default scope list.",
+          ),
+        ),
+        authorizationOptions: jsonSchema.optional(jsonSchema.array(authorizationOption)),
+      }),
+    ),
+    oauthClient: jsonSchema.optional(
+      jsonSchema.object("Default OAuth source configuration; present when the provider supports OAuth.", {
+        configured: jsonSchema.boolean(),
+        customClientAvailable: jsonSchema.boolean(
+          "Whether connections may carry their own OAuth client; false for a SaaS default source.",
+        ),
+        expectedRedirectUri: jsonSchema.string(
+          "Callback URL: the SaaS provider config callback for a SaaS source; otherwise the local override or runtime callback.",
+        ),
+        missingFields: jsonSchema.stringArray(
+          "Required local client inputs absent from storage; empty for a SaaS source.",
+        ),
+      }),
+    ),
+  });
+  const parameter = (name: string): unknown => ({ name, in: "path", required: true, schema: { type: "string" } });
+  const paths: Record<string, unknown> = {
+    "/v1/providers/{service}/setup": runtimeGetOperation(
+      "Connections",
+      "Describe the inputs a provider needs before it can be connected.",
+      {
+        data: setup,
+        parameters: [parameter("service")],
+        errorStatuses: [401, 403, 404],
+        description:
+          "Requires administrator authentication. Lists credential fields, OAuth client inputs, scopes, registration help, the callback URL to register and the OAuth client inputs still missing. Never includes saved values.",
+      },
+    ),
+    "/v1/connections": runtimeGetOperation("Connections", "List manageable connections.", {
+      parameters: [
+        queryParameter(
+          "status",
+          "Filter by current connection state.",
+          jsonSchema.stringEnum("Connection state.", ["active", "reauth_required", "error", "disconnected"]),
+        ),
+      ],
+      data: jsonSchema.array(app),
+      errorStatuses: [401, 403],
+    }),
+    "/v1/connections/by-id/{appId}": runtimeGetOperation("Connections", "Get the current connection state.", {
+      data: app,
+      parameters: [parameter("appId")],
+      errorStatuses: [401, 403, 404],
+    }),
+    "/v1/connection-requests/{connectionRequestId}": runtimeGetOperation(
+      "Connections",
+      "Get an OAuth authorization result.",
+      {
+        data: request,
+        parameters: [parameter("connectionRequestId")],
+        errorStatuses: [401, 403, 404, 409, 429, 502, 503, 504],
+        description:
+          "Requires the initiating management principal. An explicit valid administrator Bearer token advances SaaS authorization; cookie-only and unauthenticated local GET requests only read stored results. Console uses same-origin POST /api/oauth/connection-requests/{id}/sync with X-OpenConnector-Request: sync. A consumed callback does not remove the result. Responses use Cache-Control: private, no-store.",
+      },
+    ),
+  };
+  for (const reconnect of [false, true]) {
+    const base = reconnect ? "/v1/connections/by-id/{appId}/connect" : "/v1/connections/{service}/connect";
+    for (const [suffix, input, output] of [
+      ["", oauthConnectionInput, start],
+      ["/api-key", apiKeyConnectionInput, app],
+      ["/custom-credential", customConnectionInput, app],
+    ] as const) {
+      paths[`${base}${suffix}`] = {
+        post: {
+          tags: ["Connections"],
+          summary: `${reconnect ? "Reconnect" : "Create"} ${suffix || "OAuth"} connection.`,
+          description:
+            "Requires administrator credentials. OAuth returns an authorization request; API key and custom credentials return the saved connection synchronously.",
+          parameters: [parameter(reconnect ? "appId" : "service")],
+          requestBody: {
+            required: Boolean(suffix),
+            content: { "application/json": { schema: z.toJSONSchema(input) } },
+          },
+          responses: {
+            200: jsonResponse(runtimeSuccessSchema(output)),
+            400: jsonResponse(runtimeFailureSchema()),
+            401: jsonResponse(runtimeFailureSchema()),
+            403: jsonResponse(runtimeFailureSchema()),
+            404: jsonResponse(runtimeFailureSchema()),
+            409: jsonResponse(runtimeFailureSchema()),
+            429: jsonResponse(runtimeFailureSchema()),
+            502: jsonResponse(runtimeFailureSchema()),
+            503: jsonResponse(runtimeFailureSchema()),
+            504: jsonResponse(runtimeFailureSchema()),
+          },
+        },
+      };
+    }
+  }
+  return paths;
 }

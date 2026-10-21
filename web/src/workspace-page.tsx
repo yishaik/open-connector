@@ -172,6 +172,7 @@ export function WorkspacePage({ data, onRefresh }: WorkspacePageProps): ReactNod
       <div className="workspace-services">
         {providers.map((provider) => {
           const accounts = usableConnectionsForService(data.connections, provider.service);
+          const requiresReconnect = accounts.some((account) => account.status === "reauth_required");
           const count = token ? allowedToolCount(provider, data, token) : 0;
           const publicService = isNoAuthOnlyProvider(provider);
           const available = isProviderLocallyAvailable(provider);
@@ -186,15 +187,17 @@ export function WorkspacePage({ data, onRefresh }: WorkspacePageProps): ReactNod
                 <ProviderIcon provider={provider} />
                 <span className={accounts.length ? "workspace-status connected" : "workspace-status"}>
                   {t(
-                    !available
-                      ? "workspace.unavailable"
-                      : needsOAuthSetup && !accounts.length
-                        ? "workspace.setupRequired"
-                        : publicService
-                          ? "workspace.publicService"
-                          : accounts.length
-                            ? "workspace.connectedLabel"
-                            : "workspace.notConnected",
+                    requiresReconnect
+                      ? "workspace.reconnectRequired"
+                      : !available
+                        ? "workspace.unavailable"
+                        : needsOAuthSetup && !accounts.length
+                          ? "workspace.setupRequired"
+                          : publicService
+                            ? "workspace.publicService"
+                            : accounts.length
+                              ? "workspace.connectedLabel"
+                              : "workspace.notConnected",
                   )}
                 </span>
               </div>
@@ -332,6 +335,7 @@ function GrantEditor({ data, token, initialService, onRefresh, onClose }: GrantE
       allowedActions: actions,
       blockedActions: token?.blockedActions ?? [],
       allowedProxies: token?.allowedProxies ?? [],
+      allowedTriggers: token?.allowedTriggers ?? [],
       allowedConnections: accountMode === "all" ? [] : accounts,
     };
     try {

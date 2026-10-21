@@ -533,3 +533,61 @@
     flex-shrink: 0;
   }
 }
+
+.console-settings-panel .language-select,
+.console-settings-panel .theme-control {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  min-width: 0;
+}
+.console-settings-panel .language-select-label,
+.console-settings-panel .theme-control > span {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}
+.console-settings-panel .theme-segmented-control {
+  width: 100%;
+}
+.console-settings-panel .runtime-status {
+  display: flex;
+}
+
+.shell-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.console-settings-panel[data-slot="dialog-content"] {
+  top: 64px;
+  right: 24px;
+  left: auto;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  transform: none;
+  translate: none;
+}
+.console-settings-controls {
+  display: grid;
+  gap: 16px;
+}
+.console-settings-section {
+  display: grid;
+  padding-block: 16px;
+  border-block: 1px solid var(--border);
+}
+.console-settings-feature-description {
+  margin: 8px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.console-settings-runtime {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}

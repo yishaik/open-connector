@@ -37,6 +37,13 @@ const documentOutputSchema = s.object(
     optional: [],
   },
 );
+const creationOutputSchema = s.requiredObject("The document creation status and result.", {
+  taskId: s.nullable(s.string("The task ID to poll; null when creation completed synchronously.")),
+  status: s.stringEnum("The document creation state.", ["processing", "succeeded", "failed", "expired"]),
+  document: s.nullable(looseDocumentSchema),
+  pollAfterMs: s.nullable(s.integer("The suggested delay before the next status request.")),
+  failure: s.nullable(s.looseObject("The upstream failure code and message, if creation failed.")),
+});
 const taskOutputSchema = s.looseRequiredObject(
   "A Feishu document background task result.",
   {
@@ -57,6 +64,11 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
   return [
     defineProviderAction(service, {
       name: "create_document",
+      asyncLifecycle: {
+        startActionId: `${service}.create_document`,
+        statusActionId: `${service}.get_document_creation`,
+      },
+      operationType: "write",
       description:
         "Create a Feishu document from Docx XML or Markdown content, optionally inside a folder or Wiki node.",
       requiredScopes: [feishuDocsProviderScopes.create],
@@ -85,10 +97,27 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
           optional: ["title", "format", "parentToken", "parentPosition", "referenceMap"],
         },
       ),
-      outputSchema: documentOutputSchema,
+      outputSchema: creationOutputSchema,
+    }),
+    defineProviderAction(service, {
+      name: "get_document_creation",
+      operationType: "read",
+      description:
+        "Get a document creation task status and its completed document. Do not repeat creation while the task is processing.",
+      requiredScopes: [feishuDocsProviderScopes.create],
+      providerPermissions: [feishuDocsProviderScopes.create],
+      asyncLifecycle: {
+        startActionId: `${service}.create_document`,
+        statusActionId: `${service}.get_document_creation`,
+      },
+      inputSchema: s.requiredObject("Identify the document creation task.", {
+        taskId: s.nonEmptyString("The task ID returned by create_document."),
+      }),
+      outputSchema: creationOutputSchema,
     }),
     defineProviderAction(service, {
       name: "fetch_document",
+      operationType: "read",
       description:
         "Fetch a Feishu document as Docx XML or Markdown, with optional structural detail and partial-read selection.",
       requiredScopes: [feishuDocsProviderScopes.read],
@@ -150,6 +179,7 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
     }),
     defineProviderAction(service, {
       name: "update_document",
+      operationType: "destructive",
       description:
         "Update a Feishu document with a high-level text or block operation instead of manually orchestrating docx block APIs.",
       requiredScopes: [feishuDocsProviderScopes.write, feishuDocsProviderScopes.read],
@@ -190,6 +220,7 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
     }),
     defineProviderAction(service, {
       name: "search_documents",
+      operationType: "read",
       description: "Search Feishu documents, Wiki nodes, spreadsheets, Base apps, files, folders, and slides.",
       requiredScopes: [feishuDocsProviderScopes.search],
       providerPermissions: [feishuDocsProviderScopes.search],
@@ -231,6 +262,7 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
     }),
     defineProviderAction(service, {
       name: "list_document_history",
+      operationType: "read",
       description: "List historical versions of a Feishu docx document.",
       requiredScopes: [feishuDocsProviderScopes.read],
       providerPermissions: [feishuDocsProviderScopes.read],
@@ -266,6 +298,7 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
     }),
     defineProviderAction(service, {
       name: "revert_document",
+      operationType: "destructive",
       description: "Revert a Feishu docx document to a historical version and return the background task state.",
       requiredScopes: [feishuDocsProviderScopes.write, feishuDocsProviderScopes.read],
       providerPermissions: [feishuDocsProviderScopes.write, feishuDocsProviderScopes.read],
@@ -289,6 +322,7 @@ export function createFeishuDocsActions(service: string): readonly ActionDefinit
     }),
     defineProviderAction(service, {
       name: "get_document_revert_status",
+      operationType: "read",
       description: "Get the status of a Feishu document history revert task.",
       requiredScopes: [feishuDocsProviderScopes.read],
       providerPermissions: [feishuDocsProviderScopes.read],
