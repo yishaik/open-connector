@@ -1,5 +1,6 @@
 const { chromium } = require("/home/ubuntu/git/x-reader/node_modules/playwright-core");
 const fs = require("node:fs");
+const previewOrigin = process.env.CONNECTOR_PREVIEW_URL ?? "http://127.0.0.1:4177";
 const assert = require("node:assert/strict");
 const action = (service, name) => ({
   id: `${service}.${name}`,
@@ -21,7 +22,12 @@ const providers = ["gmail", "github", "slack"].map((service) => ({
   description: `Connect ${service} and choose what your assistant can do.`,
   categories: ["productivity"],
   authTypes: ["api_key"],
-  auth: [{ type: "api_key" }],
+  auth: [
+    {
+      type: "api_key",
+      fields: [{ key: "apiKey", label: "API key", inputType: "password", secret: true, required: true }],
+    },
+  ],
   actions: [action(service, "read"), action(service, "send")],
 }));
 providers.push({
@@ -162,7 +168,16 @@ let tokens = [
       } else
         result = {
           "/api/auth/session": { authenticated: true, adminAuthConfigured: true },
-          "/api/providers": providers,
+          "/api/providers": providers.map(({ auth, ...provider }) => ({ ...provider, setup: auth })),
+          "/api/marketplace": {
+            configured: false,
+            enabled: false,
+            status: "disabled",
+            discoveryUrl: "",
+            compatibleActionCount: 0,
+            compatibleProviderCount: 0,
+          },
+          "/api/provider-preferences": [],
           "/api/connections": connections,
           "/api/oauth/configs": [
             { service: "oauth-demo", configured: true, clientId: "fixture-client", customClientAvailable: true },
@@ -174,7 +189,7 @@ let tokens = [
       if (result === undefined) throw new Error(`Unexpected API call ${req.method()} ${p}`);
       await route.fulfill({ json: result });
     });
-    await page.goto("http://127.0.0.1:4177/");
+    await page.goto(`${previewOrigin}/`);
     await page.getByRole("heading", { name: "Your services. The right tools." }).waitFor();
     assert.equal(await page.locator(".workspace-service").count(), 2);
     assert.match(await page.locator(".workspace-client-main").innerText(), /2 tools allowed/);
@@ -282,7 +297,7 @@ let tokens = [
     assert.equal(connectionWrites.length, 1);
     assert.equal(connectionWrites[0].connectionName, "default");
     assert.equal(connectionWrites[0].authType, "api_key");
-    await page.goto("http://127.0.0.1:4177/runs");
+    await page.goto(`${previewOrigin}/runs`);
     await page.locator(".run-actor", { hasText: "open-webui-readonly" }).waitFor();
     assert.match(await page.locator(".run-col-context").last().innerText(), /personal/);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -290,7 +305,7 @@ let tokens = [
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({ path: "verification/activity-desktop.png", fullPage: true });
     await context.route("https://example.test/**", (route) => route.fulfill({ body: "Fixture authorization page" }));
-    await page.goto("http://127.0.0.1:4177/providers/oauth-demo");
+    await page.goto(`${previewOrigin}/providers/oauth-demo`);
     const popupPromise = context.waitForEvent("page");
     await page.getByRole("button", { name: "Connect OAuth demo", exact: true }).click();
     const popup = await popupPromise;
@@ -339,7 +354,7 @@ let tokens = [
     });
     await page.getByText(/Account connected. Next, choose/).waitFor();
 
-    await page.goto("http://127.0.0.1:4177/providers/slack");
+    await page.goto(`${previewOrigin}/providers/slack`);
     await page.getByRole("button", { name: "Add Connection", exact: true }).click();
     await page.getByLabel(/^Connection name/).fill("retry-account");
     await page.getByLabel("API key", { exact: true }).fill("fixture-retry-credential");
@@ -354,7 +369,7 @@ let tokens = [
     await page.getByText("retry-account", { exact: true }).waitFor();
     assert.equal(connectionWrites.length, 2);
 
-    await page.goto("http://127.0.0.1:4177/workspace");
+    await page.goto(`${previewOrigin}/workspace`);
     await page
       .locator(".workspace-service")
       .filter({ has: page.getByRole("heading", { name: "Gmail", exact: true }) })

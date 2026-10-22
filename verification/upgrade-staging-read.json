@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-21",
+  "source": "Upgraded backend using Worker credential encryption and a migrated copy of production D1",
+  "counts": {
+    "/api/connections": 60,
+    "savedConnections": 32,
+    "/api/runtime-tokens": 11,
+    "/api/providers": 1650
+  },
+  "workspaceRenders": true,
+  "activityRenders": true,
+  "noHorizontalOverflow": true,
+  "apiWrites": 0,
+  "realProviderCalls": 0,
+  "pageErrors": []
+}

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export OPENCONNECTOR_MCP_URL="https://connect.yishaik.com/mcp"
+python3 /home/ubuntu/alfred/secretbox.py \
+  --run 'open-connector/CODEX_MCP_RUNTIME_TOKEN=OPENCONNECTOR_MCP_TOKEN' \
+  -- node /home/ubuntu/git/open-connector/scripts/mcp-secretbox-proxy.mjs \
+  | sed -u '/^secretbox:/d'

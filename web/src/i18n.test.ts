@@ -106,9 +106,16 @@ describe("locales", () => {
   // Our existing custom console intentionally uses English copy in every locale.
   // Keep parity/placeholder checks for these keys; upstream screens remain translated.
   const customConsoleEnglishKeys = new Set([
-    "providers.connectionMessages.missingAuthorizationUrl", "providers.connectionMessages.continueOAuthHelp",
-    "providers.connectionMessages.chooseAppAccess", "providers.connectionMessages.signInAgain", "providers.buttons.continueOAuth",
-    "runs.attributionHelp", "runs.unknownApp", "runs.webConsole", "runs.unattributed", "runs.accountNotRecorded",
+    "providers.connectionMessages.missingAuthorizationUrl",
+    "providers.connectionMessages.continueOAuthHelp",
+    "providers.connectionMessages.chooseAppAccess",
+    "providers.connectionMessages.signInAgain",
+    "providers.buttons.continueOAuth",
+    "runs.attributionHelp",
+    "runs.unknownApp",
+    "runs.webConsole",
+    "runs.unattributed",
+    "runs.accountNotRecorded",
   ]);
   const englishTerms = new Set([
     "api key",
@@ -159,7 +166,13 @@ describe("locales", () => {
       const allowedKeys = englishKeys[lang] ?? [];
       const untranslated = enEntries
         .filter(([, value]) => value.trim().split(/\s+/).length > 1)
-        .filter(([key, value]) => !key.startsWith("workspace.") && !customConsoleEnglishKeys.has(key) && !englishTerms.has(normalize(value)) && !allowedKeys.includes(key))
+        .filter(
+          ([key, value]) =>
+            !key.startsWith("workspace.") &&
+            !customConsoleEnglishKeys.has(key) &&
+            !englishTerms.has(normalize(value)) &&
+            !allowedKeys.includes(key),
+        )
         .filter(([key, value]) => {
           // A value copied from en reads as English however it is recased, and
           // so does one that only shuffles the same English words.

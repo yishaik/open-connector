@@ -7,6 +7,12 @@ export const googleChatMessagesReadonlyScope = "https://www.googleapis.com/auth/
  * which Google describes as "see, compose, send, update, and delete messages"
  * plus reactions — far beyond what sending a message needs.
  */
+export const googleChatSpacesCreateScope = "https://www.googleapis.com/auth/chat.spaces.create";
+export const googleChatDirectMessageWriteScopes: string[] = [
+  googleChatSpacesReadonlyScope,
+  googleChatSpacesCreateScope,
+  "https://www.googleapis.com/auth/chat.messages.create",
+];
 export const googleChatMessagesCreateScope = "https://www.googleapis.com/auth/chat.messages.create";
 /** Lists the members of a space, which is the only way to learn a direct message's other participant. */
 export const googleChatMembershipsReadonlyScope = "https://www.googleapis.com/auth/chat.memberships.readonly";
@@ -33,6 +39,7 @@ export const googleChatServiceAccountScopes: string[] = [
 export const googleChatOAuthScopes: string[] = [
   ...googleChatServiceAccountScopes,
   googleChatMessagesCreateScope,
+  googleChatSpacesCreateScope,
   googleChatMembershipsReadonlyScope,
   googleDirectoryReadonlyScope,
 ];

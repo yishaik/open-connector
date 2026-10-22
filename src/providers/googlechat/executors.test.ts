@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { getProviderActionHandler } from "../provider-runtime.ts";
 import { googleChatActions } from "./actions.ts";
 import { googleChatActionHandlers } from "./executors.ts";
+import { googleChatApiBaseUrl } from "./runtime.ts";
 
 const accessToken = "test-token";
 
@@ -367,5 +368,66 @@ describe("Google Chat find_direct_message", () => {
     await expect(
       googleChatActionHandlers.find_direct_message({ user: "person@example.com" }, { accessToken, fetcher }),
     ).rejects.toMatchObject({ status: 403, code: undefined });
+  });
+});
+
+describe("Google Chat direct messages", () => {
+  it("finds an existing direct-message space and sends plain text", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher: ProviderFetch = async (url, init) => {
+      requests.push({ url: String(url), init });
+      if (String(url).includes("spaces:findDirectMessage")) {
+        return new Response(JSON.stringify({ name: "spaces/DM", spaceType: "DIRECT_MESSAGE" }));
+      }
+      return new Response(
+        JSON.stringify({ name: "spaces/DM/messages/M.M", space: { name: "spaces/DM" }, text: "hello" }),
+      );
+    };
+
+    await expect(
+      googleChatActionHandlers.send_direct_message(
+        { recipientEmail: "person@example.com", text: "hello" },
+        { accessToken, fetcher },
+      ),
+    ).resolves.toMatchObject({
+      recipientEmail: "person@example.com",
+      createdSpace: false,
+      message: { name: "spaces/DM/messages/M.M", text: "hello" },
+    });
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.url).toContain("spaces:findDirectMessage?name=users%2Fperson%40example.com");
+    expect(requests[1]?.url).toBe(`${googleChatApiBaseUrl}/spaces/DM/messages`);
+    expect(requests[1]?.init).toMatchObject({ method: "POST", body: JSON.stringify({ text: "hello" }) });
+  });
+
+  it("creates a direct-message space when none exists", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher: ProviderFetch = async (url, init) => {
+      requests.push({ url: String(url), init });
+      if (String(url).includes("spaces:findDirectMessage")) {
+        return new Response(JSON.stringify({ error: { message: "not found" } }), { status: 404 });
+      }
+      if (String(url).includes("spaces:setup")) {
+        return new Response(JSON.stringify({ name: "spaces/NEW", spaceType: "DIRECT_MESSAGE" }));
+      }
+      return new Response(
+        JSON.stringify({ name: "spaces/NEW/messages/M.M", space: { name: "spaces/NEW" }, text: "hello" }),
+      );
+    };
+
+    await expect(
+      googleChatActionHandlers.send_direct_message(
+        { recipientEmail: "person@example.com", text: "hello" },
+        { accessToken, fetcher },
+      ),
+    ).resolves.toMatchObject({ createdSpace: true, space: { name: "spaces/NEW" } });
+    expect(requests).toHaveLength(3);
+    expect(requests[1]?.url).toBe(`${googleChatApiBaseUrl}/spaces:setup`);
+    expect(requests[1]?.init?.body).toBe(
+      JSON.stringify({
+        space: { spaceType: "DIRECT_MESSAGE", singleUserBotDm: false },
+        memberships: [{ member: { name: "users/person@example.com", type: "HUMAN" } }],
+      }),
+    );
   });
 });

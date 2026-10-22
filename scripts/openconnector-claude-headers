@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+python3 /home/ubuntu/alfred/secretbox.py \
+  --run 'open-connector/CLAUDE_MCP_RUNTIME_TOKEN=OPENCONNECTOR_MCP_TOKEN' \
+  -- node -e 'process.stdout.write(`${JSON.stringify({Authorization: `Bearer ${process.env.OPENCONNECTOR_MCP_TOKEN}`})}\n`)' \
+  | sed -u '/^secretbox:/d'

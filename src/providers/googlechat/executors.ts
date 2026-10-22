@@ -21,6 +21,7 @@ import {
   defineProviderProxy,
   ProviderRequestError,
   providerResponseError,
+  requiredInputString,
   requiredResponseRecord,
 } from "../provider-runtime.ts";
 import {
@@ -73,6 +74,7 @@ export const googleChatActionHandlers: ProviderActionHandlers<"googlechat", Goog
   list_messages: listMessages,
   get_message: getMessage,
   create_message: createMessage,
+  send_direct_message: sendDirectMessage,
   find_direct_message: findDirectMessage,
   get_direct_message_peer: getDirectMessagePeer,
   list_space_members: listSpaceMembers,
@@ -317,6 +319,34 @@ async function getMessage(input: Record<string, unknown>, context: GoogleChatRun
 
   const [message] = await attachSenderProfiles([normalizeMessage(payload)], context);
   return message;
+}
+
+async function sendDirectMessage(input: Record<string, unknown>, context: GoogleChatRuntimeContext) {
+  const recipientEmail = requiredInputString(input.recipientEmail, "recipientEmail");
+  const text = requireRawText(input.text, "text is required");
+  const userName = resolveUserName(recipientEmail);
+  let spacePayload: unknown;
+  let createdSpace = false;
+  try {
+    spacePayload = await googleChatJsonRequest<unknown>(`${googleChatApiBaseUrl}/spaces:findDirectMessage`, {
+      context,
+      query: { name: userName },
+    });
+  } catch (error) {
+    if (!(error instanceof ProviderRequestError) || error.status !== 404) throw error;
+    spacePayload = await googleChatJsonRequest<unknown>(`${googleChatApiBaseUrl}/spaces:setup`, {
+      context,
+      method: "POST",
+      body: {
+        space: { spaceType: "DIRECT_MESSAGE", singleUserBotDm: false },
+        memberships: [{ member: { name: userName, type: "HUMAN" } }],
+      },
+    });
+    createdSpace = true;
+  }
+  const space = normalizeSpace(spacePayload);
+  const message = await createMessage({ space: space.name, text }, context);
+  return { recipientEmail, createdSpace, space, message };
 }
 
 async function createMessage(input: Record<string, unknown>, context: GoogleChatRuntimeContext) {

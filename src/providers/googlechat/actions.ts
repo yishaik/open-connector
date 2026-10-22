@@ -4,6 +4,7 @@ import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 import {
   googleChatMembershipsReadonlyScope,
+  googleChatDirectMessageWriteScopes,
   googleChatMessagesCreateScope,
   googleChatMessagesReadonlyScope,
   googleChatSpacesReadonlyScope,
@@ -135,6 +136,25 @@ const message = s.object(
 );
 
 const actions: GoogleChatActionSource[] = [
+  action(
+    "send_direct_message",
+    "write",
+    "Find or create a direct-message space with one Google Chat user, then send a plain-text message as the authenticated user.",
+    googleChatDirectMessageWriteScopes,
+    s.actionInput(
+      {
+        recipientEmail: s.email("The Google Chat recipient's email address."),
+        text: s.nonEmptyString("The plain-text message to send."),
+      },
+      ["recipientEmail", "text"],
+    ),
+    s.requiredObject("The sent direct message and its destination space.", {
+      recipientEmail: s.email("The recipient email address used to resolve the direct message."),
+      createdSpace: s.boolean("Whether a new direct-message space was created."),
+      space,
+      message,
+    }),
+  ),
   action(
     "list_spaces",
     "read",

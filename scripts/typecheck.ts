@@ -31,7 +31,7 @@ const results: TypecheckResult[] = [];
 if (process.env.OOMOL_CONNECT_TYPECHECK_SERIAL === "1") {
   for (const project of projects) results.push(await typecheckProject(project));
 } else {
-  results.push(...await Promise.all(projects.map((project) => typecheckProject(project))));
+  results.push(...(await Promise.all(projects.map((project) => typecheckProject(project)))));
 }
 const failedResults = results.filter((result) => result.exitCode !== 0 || result.signal);
 

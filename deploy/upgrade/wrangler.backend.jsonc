@@ -1,0 +1,45 @@
+{
+  "name": "open-connector",
+  "main": "../../src/server/cloudflare.ts",
+  "compatibility_date": "2026-10-21",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "../../dist/web",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/.well-known/*",
+      "/api/*",
+      "/v1/*",
+      "/mcp*",
+      "/oauth/*",
+      "/docs",
+      "/docs/*",
+      "/openapi.json",
+      "/health",
+    ],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "open-connector",
+      "database_id": "528e7976-6cb1-4d9f-9fdd-29f4ad7edac8",
+      "migrations_dir": "../../migrations",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "TRANSIT_FILES",
+      "id": "3069657035bf45e9b02a79e75ec21f1f",
+    },
+  ],
+  "vars": {
+    "OOMOL_CONNECT_ORIGIN": "https://connect.yishaik.com",
+    "TRANSIT_FILES_BACKEND": "kv",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}

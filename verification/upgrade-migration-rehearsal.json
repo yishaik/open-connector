@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-22",
+  "migrations": [
+    "0012_marketplace.sql",
+    "0013_connection_requests.sql",
+    "0014_saas_project.sql",
+    "0015_saas_cleanup_runtime.sql",
+    "0016_trigger_policy.sql",
+    "0017_trigger_subscriptions.sql",
+    "0018_connection_retirement.sql"
+  ],
+  "integrity_check": "ok",
+  "existing_credentials_tokens_policies_unchanged": true,
+  "new_trigger_grants_empty": true,
+  "counts": {
+    "connections": 32,
+    "runtime_tokens": 11,
+    "runtime_policy": 0
+  }
+}

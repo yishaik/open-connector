@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-22",
+  "versions": {
+    "open-connector": [
+      {
+        "version_id": "5aefb83c-010a-4f17-80ce-b2c259efdc02",
+        "percentage": 100
+      }
+    ],
+    "open-connector-console": [
+      {
+        "version_id": "0cb33ee8-1b83-4ba8-bc66-6904c499fde3",
+        "percentage": 100
+      }
+    ]
+  },
+  "domain_owner": "open-connector-console",
+  "existing_connection_token_policy_fields_unchanged": true,
+  "secret_bindings_preserved": true,
+  "counts": {
+    "connections": 32,
+    "runtime_tokens": 11,
+    "runtime_policy": 0
+  }
+}

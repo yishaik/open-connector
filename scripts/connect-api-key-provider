@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+service=${1:?service is required}
+connection_name=${2:-default}
+origin=https://connect.yishaik.com
+
+: "${ADMIN_TOKEN:?ADMIN_TOKEN is required}"
+: "${PROVIDER_KEY:?PROVIDER_KEY is required}"
+
+payload=$(jq -cn \
+  --arg connectionName "$connection_name" \
+  --arg apiKey "$PROVIDER_KEY" \
+  '{authType:"api_key",connectionName:$connectionName,values:{apiKey:$apiKey}}')
+
+response_file=$(mktemp)
+trap 'rm -f "$response_file"' EXIT
+status=$(curl -sS -o "$response_file" -w '%{http_code}' -X PUT "$origin/api/connections/$service" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data "$payload")
+
+jq -c --arg service "$service" --arg connection "$connection_name" --arg status "$status" \
+  '{service:$service,connection:$connection,httpStatus:$status,result:(if .error then {error:.error,message:.message} else {configured,authType,profile} end)}' \
+  "$response_file"
+
+[[ "$status" =~ ^2 ]]

@@ -6,6 +6,8 @@ import { format } from "oxfmt";
 import { loadProviderSources } from "./provider-source.ts";
 
 const providersDir = join(process.cwd(), "src/providers");
+// Preserve this deployment's existing free-tier executor exclusions.
+const cloudflareFreeTierExcludedServices = new Set(["aliyun_oss", "mqtt", "postman"]);
 
 /**
  * Generate provider registries from definitions already loaded by the caller.
@@ -15,7 +17,7 @@ export async function generateProviderRegistries(providerSources: ProviderSource
     writeRegistry("registry.generated.ts", providerSources),
     writeRegistry(
       "registry.cloudflare.generated.ts",
-      providerSources.filter((source) => !source.nodeOnly),
+      providerSources.filter((source) => !source.nodeOnly && !cloudflareFreeTierExcludedServices.has(source.service)),
     ),
     writeActionContracts(providerSources),
   ]);
