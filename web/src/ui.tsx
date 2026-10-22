@@ -14,6 +14,7 @@ import type { ReactNode, SubmitEvent } from "react";
 import { useI18n, useLang, useTranslate } from "@embra/i18n/react";
 import {
   Activity,
+  ChartNoAxesCombined,
   BookOpen,
   Cable,
   Fingerprint,
@@ -40,6 +41,7 @@ import { emptyData } from "./model";
 import { OAuthAppsPage } from "./oauth-apps-page";
 import { OverviewPage } from "./overview-page";
 import { ProvidersPage } from "./providers-page";
+import { ReportsPage } from "./reports-page";
 import { ResourcesPage } from "./resources-page";
 import { RunsPage } from "./runs-page";
 import { InlineError, StatusDot } from "./shared-ui";
@@ -66,6 +68,7 @@ const navItems = [
   { path: "/oauth-apps", labelKey: "nav.oauthApps", icon: Fingerprint },
   { path: "/actions", labelKey: "nav.actions", icon: TerminalSquare },
   { path: "/runs", labelKey: "nav.runs", icon: Activity },
+  { path: "/reports", labelKey: "nav.reports", icon: ChartNoAxesCombined },
   { path: "/access", labelKey: "nav.access", icon: KeyRound },
   { path: "/resources", labelKey: "nav.docs", icon: BookOpen },
 ] as const;
@@ -388,14 +391,17 @@ function AppShell(props: {
 
       <nav className="sidebar-nav" aria-label={t("shell.primaryNav")}>
         {navItems
-          .filter((item) => item.path === "/workspace" || item.path === "/runs")
+          .filter((item) => item.path === "/workspace" || item.path === "/runs" || item.path === "/reports")
           .map((item) => (
             <SidebarLink key={item.path} item={item} onNavigate={() => setMenuOpen(false)} />
           ))}
-        <details className="sidebar-advanced" open={Boolean(section && section !== "workspace" && section !== "runs")}>
+        <details
+          className="sidebar-advanced"
+          open={Boolean(section && section !== "workspace" && section !== "runs" && section !== "reports")}
+        >
           <summary>{t("nav.advanced")}</summary>
           {navItems
-            .filter((item) => item.path !== "/workspace" && item.path !== "/runs")
+            .filter((item) => item.path !== "/workspace" && item.path !== "/runs" && item.path !== "/reports")
             .map((item) => (
               <SidebarLink key={item.path} item={item} onNavigate={() => setMenuOpen(false)} />
             ))}
@@ -507,6 +513,7 @@ function AppShell(props: {
           <Routes>
             <Route index element={<Navigate to="/workspace" replace />} />
             <Route path="/workspace" element={<WorkspacePage data={props.data} onRefresh={props.onRefresh} />} />
+            <Route path="/reports" element={<ReportsPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/overview" element={<OverviewPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/providers" element={<ProvidersPage data={props.data} onRefresh={props.onRefresh} />} />
             <Route path="/marketplace" element={<Navigate to="/providers?onekey=1" replace />} />
@@ -694,6 +701,7 @@ function LanguageSelect(): ReactNode {
 function headingForPath(pathname: string): string {
   const section = pathname.split("/").filter(Boolean)[0];
   if (section === "workspace") return "workspace";
+  if (section === "reports") return "reports";
   if (section === "providers") {
     return "providers";
   }

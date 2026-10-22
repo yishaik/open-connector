@@ -42,7 +42,8 @@
     "access": "API 金鑰",
     "docs": "接入指南",
     "workspace": "服務與工具",
-    "advanced": "進階設定"
+    "advanced": "進階設定",
+    "reports": "每週報告"
   },
   "shell": {
     "invalidUnlockToken": "請輸入有效的管理員權杖以解鎖控制台。",
@@ -81,6 +82,9 @@
       },
       "resources": {
         "title": "接入指南"
+      },
+      "reports": {
+        "title": "每週報告"
       }
     },
     "settings": "設定",

@@ -11,6 +11,7 @@ const consoleSections = new Set([
   "oauth-apps",
   "actions",
   "runs",
+  "reports",
   "access",
   "resources",
 ]);

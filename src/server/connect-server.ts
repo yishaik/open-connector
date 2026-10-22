@@ -48,6 +48,7 @@ import { createSaasOAuthRoutes } from "./api/saas-oauth-routes.ts";
 import { createSaasProjectRoutes } from "./api/saas-project-routes.ts";
 import { createTransitFileRoutes } from "./api/transit-file-routes.ts";
 import { createTriggerRoutes } from "./api/trigger-routes.ts";
+import { createUsageReportRoutes } from "./api/usage-report-routes.ts";
 import { ProxyRunner } from "./proxy/proxy-runner.ts";
 
 /**
@@ -63,6 +64,7 @@ export async function preloadOptionalServerModules(): Promise<void> {
  * Dependencies required to construct the local connector server.
  */
 export interface IConnectServerOptions {
+  usageReports?: import("./reports/usage-types.ts").UsageReportSource;
   providerHttpDispatch?: ProviderHttpDispatchOptions;
   catalog: CatalogStore;
   /** Public origin of this runtime, used for the HTTP request examples in Action guides. */
@@ -240,6 +242,7 @@ export class ConnectServer {
       app.route("/api", createMarketplaceRoutes({ marketplace: this.options.marketplace }));
     }
     app.route("/api", createRunLogRoutes({ actions: this.options.actions }));
+    if (this.options.usageReports) app.route("/api", createUsageReportRoutes(this.options.usageReports));
     app.route("/api", createTransitFileRoutes(this.options));
     app.route(
       "/api",

@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-22",
+  "source": "Private production database copy and read-only staging inventory",
+  "viewports": ["1440x1050", "390x844", "320x568"],
+  "apiWrites": 0,
+  "unusedKeysFilter": true,
+  "inventorySearch": true,
+  "connectedAccounts": 32,
+  "serviceFilter": true,
+  "weekNavigation": true,
+  "timezoneSelection": true,
+  "csvDownload": true,
+  "pageErrors": []
+}

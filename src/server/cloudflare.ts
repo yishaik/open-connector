@@ -25,6 +25,7 @@ import { createConnectApp } from "./connect-app.ts";
 import { preloadOptionalServerModules } from "./connect-server.ts";
 import { KVTransitFileService } from "./files/kv-transit-files.ts";
 import { R2TransitFileService } from "./files/r2-transit-files.ts";
+import { D1UsageReportStore } from "./reports/d1-usage-store.ts";
 import { createWorkerSecretCodec } from "./secrets/worker-secret-codec.ts";
 import { D1RuntimeDatabase } from "./storage/d1/runtime-store.ts";
 import { DEFAULT_RUN_LIMIT } from "./storage/runtime-store.ts";
@@ -107,11 +108,13 @@ async function createCloudflareApp(env: CloudflareEnv, publicOrigin: string): Pr
   await preloadOptionalServerModules();
   const secretCodec = await createSecretCodec(env.OOMOL_CONNECT_ENCRYPTION_KEY);
   return await createConnectApp({
+    usageReports: env.OOMOL_CONNECT_USAGE_REPORTS === "1" ? new D1UsageReportStore(env.DB) : undefined,
     catalog: await loadCatalogOnce(assets),
     providerLoader: new ProviderLoader(executorModules),
     runtimeDatabase: new D1RuntimeDatabase(env.DB, {
       secretCodec,
       runLimit: readPositiveInteger(env.OOMOL_CONNECT_RUN_LIMIT, DEFAULT_RUN_LIMIT),
+      archiveUsage: env.OOMOL_CONNECT_USAGE_REPORTS === "1",
     }),
     transitFiles: (() => {
       const transitFileOptions = {
@@ -212,6 +215,7 @@ function createCacheKey(env: CloudflareEnv, publicOrigin: string): string {
     transitFileTtlSeconds: env.OOMOL_CONNECT_TRANSIT_FILE_TTL_SECONDS ?? "",
     transitFileMaxBytes: env.OOMOL_CONNECT_TRANSIT_FILE_MAX_BYTES ?? "",
     runLimit: env.OOMOL_CONNECT_RUN_LIMIT ?? "",
+    usageReports: env.OOMOL_CONNECT_USAGE_REPORTS ?? "",
     oauthCloseDelaySeconds: env.OOMOL_CONNECT_OAUTH_CLOSE_DELAY_SECONDS ?? "",
   });
 }

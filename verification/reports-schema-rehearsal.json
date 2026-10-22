@@ -1,0 +1,8 @@
+{
+  "date": "2026-10-22",
+  "existing_tables_unchanged": true,
+  "idempotent": true,
+  "integrity_check": "ok",
+  "backfilled_events": 953,
+  "payloads_and_credential_values_archived": false
+}

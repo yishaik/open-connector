@@ -36,6 +36,7 @@
     },
   ],
   "vars": {
+    "OOMOL_CONNECT_USAGE_REPORTS": "1",
     "OOMOL_CONNECT_ORIGIN": "https://connect.yishaik.com",
     "TRANSIT_FILES_BACKEND": "kv",
   },

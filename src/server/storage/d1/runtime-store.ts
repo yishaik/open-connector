@@ -21,6 +21,7 @@ import type { IRunLogStore, RunLog, RunLogListInput, RunLogPage, RunLogWriteResu
 import type { IRuntimeTokenStore, RuntimeTokenRecord } from "../runtime-token-service.ts";
 
 import { parseRuntimeActionHttpResult } from "../../api/runtime-api.ts";
+import { usageEventStatement } from "../../reports/d1-usage-store.ts";
 import { PlainTextSecretCodec } from "../../secrets/secret-codec-core.ts";
 import { ConnectionRequestStore } from "../connection-request-store.ts";
 import { SqlConnectionStore } from "../connection-store.ts";
@@ -43,6 +44,7 @@ type SecretJsonTable = "oauth_client_configs";
 export interface D1RuntimeDatabaseOptions {
   runLimit?: number;
   secretCodec?: ISecretCodec;
+  archiveUsage?: boolean;
 }
 
 export class D1RuntimeDatabase implements RuntimeDatabase {
@@ -72,7 +74,7 @@ export class D1RuntimeDatabase implements RuntimeDatabase {
     this.oauthStateStore = new SqlOAuthStateStore(transaction, secretCodec);
     this.runtimeTokenStore = new D1RuntimeTokenStore(database);
     this.runtimePolicyStore = new D1RuntimePolicyStore(database);
-    this.runLogStore = new D1RunLogStore(database, options.runLimit ?? DEFAULT_RUN_LIMIT);
+    this.runLogStore = new D1RunLogStore(database, options.runLimit ?? DEFAULT_RUN_LIMIT, options.archiveUsage);
     this.idempotencyStore = new D1IdempotencyStore(database, secretCodec);
     this.marketplaceStore = new D1MarketplaceStore(database);
   }
@@ -369,14 +371,16 @@ export class D1IdempotencyStore implements IIdempotencyStore {
 export class D1RunLogStore implements IRunLogStore {
   private readonly database: D1DatabaseBinding;
   private readonly limit: number;
+  private readonly archiveUsage: boolean;
 
-  constructor(database: D1DatabaseBinding, limit: number) {
+  constructor(database: D1DatabaseBinding, limit: number, archiveUsage = false) {
     this.database = database;
     this.limit = limit;
+    this.archiveUsage = archiveUsage;
   }
 
   async add(run: RunLog): Promise<RunLogWriteResult> {
-    await this.database
+    const insert = this.database
       .prepare(
         `
         insert into runs (id, service, action_id, caller, started_at, completed_at, ok, value)
@@ -400,8 +404,9 @@ export class D1RunLogStore implements IRunLogStore {
         run.completedAt,
         run.ok ? 1 : 0,
         JSON.stringify(run),
-      )
-      .run();
+      );
+    if (this.archiveUsage) await this.database.batch([insert, usageEventStatement(this.database, run)]);
+    else await insert.run();
 
     try {
       await this.database

@@ -42,7 +42,8 @@
     "access": "API Key",
     "docs": "接続ガイド",
     "workspace": "サービスとツール",
-    "advanced": "詳細設定"
+    "advanced": "詳細設定",
+    "reports": "週間レポート"
   },
   "shell": {
     "invalidUnlockToken": "有効な管理者 token を入力してコンソールをロック解除してください。",
@@ -81,6 +82,9 @@
       },
       "resources": {
         "title": "接続ガイド"
+      },
+      "reports": {
+        "title": "週間レポート"
       }
     },
     "settings": "設定",

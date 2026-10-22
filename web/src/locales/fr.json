@@ -42,7 +42,8 @@
     "access": "API Key",
     "docs": "Connecter des clients",
     "workspace": "Services et outils",
-    "advanced": "Avancé"
+    "advanced": "Avancé",
+    "reports": "Rapports hebdomadaires"
   },
   "shell": {
     "invalidUnlockToken": "Saisissez un token administrateur valide pour déverrouiller la console.",
@@ -81,6 +82,9 @@
       },
       "resources": {
         "title": "Connecter des clients"
+      },
+      "reports": {
+        "title": "Rapports hebdomadaires"
       }
     },
     "settings": "Paramètres",

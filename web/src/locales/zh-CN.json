@@ -42,7 +42,8 @@
     "access": "API Key",
     "docs": "接入指南",
     "workspace": "服务与工具",
-    "advanced": "高级设置"
+    "advanced": "高级设置",
+    "reports": "每周报告"
   },
   "shell": {
     "invalidUnlockToken": "请输入有效的管理员 token 来解锁控制台。",
@@ -81,6 +82,9 @@
       },
       "resources": {
         "title": "接入指南"
+      },
+      "reports": {
+        "title": "每周报告"
       }
     },
     "settings": "设置",

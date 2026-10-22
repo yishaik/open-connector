@@ -27,6 +27,7 @@ import { ConnectServer } from "./connect-server.ts";
 import { RuntimeTokenService } from "./storage/runtime-token-service.ts";
 
 export interface ConnectAppOptions {
+  usageReports?: import("./reports/usage-types.ts").UsageReportSource;
   catalog: CatalogStore;
   providerLoader: IProviderLoader;
   providerHttpDispatch?: ProviderHttpDispatchOptions;
@@ -159,6 +160,7 @@ export async function createConnectApp(options: ConnectAppOptions): Promise<Conn
       uploadTransitFile: options.uploadTransitFile,
       runtimeTokens,
       runtimePolicyStore: options.runtimeDatabase.runtimePolicyStore,
+      usageReports: options.usageReports,
       registerStaticRoutes: options.registerStaticRoutes,
       auth: {
         adminToken: options.adminToken,
