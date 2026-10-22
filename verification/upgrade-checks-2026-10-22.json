@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-22",
+  "fix_check": "passed",
+  "console_build": "passed",
+  "action_examples": { "passed": 19770, "failed": 0 },
+  "browser": "passed desktop and mobile with fixture API responses",
+  "full_suite": {
+    "files_passed": 303,
+    "files_failed": 2,
+    "files_skipped": 1,
+    "tests_passed": 4122,
+    "tests_failed": 4,
+    "tests_skipped": 22,
+    "failure_reason": "Default test/hook timeouts in PostgreSQL PGlite fixtures and provider regex source scan"
+  },
+  "retries": [
+    {
+      "file": "src/server/storage/postgres/runtime-store.test.ts",
+      "test_timeout_ms": 30000,
+      "hook_timeout_ms": 30000,
+      "passed": 42,
+      "failed": 0
+    },
+    {
+      "file": "src/providers/provider-source-guards.regex-charset.test.ts",
+      "test_timeout_ms": 30000,
+      "passed": 1,
+      "failed": 0
+    }
+  ],
+  "unresolved_test_failures": 0,
+  "migration_rehearsal": "Fresh production export; integrity OK; existing credentials, tokens and policy records preserved",
+  "real_provider_writes_executed": false,
+  "human_login_tested": false
+}

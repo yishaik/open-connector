@@ -1,5 +1,6 @@
 """Check live routing and policy denial without executing provider writes."""
 import json,sys,urllib.request,urllib.error
+from datetime import datetime, timezone
 from pathlib import Path
 sys.path.insert(0,'/home/ubuntu/git/open-webui-ops')
 from owui_api import Client
@@ -26,6 +27,6 @@ try:
  with opener.open(request,timeout=30) as response: status=response.status
 except urllib.error.HTTPError as error: status=error.code
 assert status==401
-report={'date':'2026-10-21','denied_actions':checks,'unauthenticated_admin_routes':statuses,'mcp_without_key_status':status,'real_provider_writes_executed':False,'human_cloudflare_or_oauth_login_tested':False}
+report={'date':datetime.now(timezone.utc).date().isoformat(),'denied_actions':checks,'unauthenticated_admin_routes':statuses,'mcp_without_key_status':status,'real_provider_writes_executed':False,'human_cloudflare_or_oauth_login_tested':False}
 Path('verification/runtime-review.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report))

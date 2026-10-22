@@ -1,11 +1,7 @@
 {
   "desktop": true,
   "mobile": true,
-  "mobileViewports": [
-    "320x568",
-    "390x844",
-    "844x390"
-  ],
+  "mobileViewports": ["320x568", "390x844", "844x390"],
   "mobileNavigationAndEscape": true,
   "longPermissionListAndVisibleFooter": true,
   "noHorizontalOverflow": true,

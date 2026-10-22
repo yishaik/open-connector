@@ -3,19 +3,20 @@
   "versions": {
     "open-connector": [
       {
-        "version_id": "5aefb83c-010a-4f17-80ce-b2c259efdc02",
+        "version_id": "22a2920e-d192-4a83-bb8c-238a73921f91",
         "percentage": 100
       }
     ],
     "open-connector-console": [
       {
-        "version_id": "0cb33ee8-1b83-4ba8-bc66-6904c499fde3",
+        "version_id": "cd19a9bd-7a8f-4830-b933-57502914fff5",
         "percentage": 100
       }
     ]
   },
   "domain_owner": "open-connector-console",
-  "existing_connection_token_policy_fields_unchanged": true,
+  "credentials_and_access_policy_unchanged": true,
+  "runtime_token_last_use_may_advance": true,
   "secret_bindings_preserved": true,
   "counts": {
     "connections": 32,

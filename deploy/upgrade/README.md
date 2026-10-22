@@ -41,3 +41,13 @@ An application rollback uses `wrangler versions deploy VERSION@100% --yes` with
 the appropriate configuration. The new database fields are additive; do not
 restore the old SQL over a live database automatically. The private export is
 available for a separately planned restore if needed.
+
+## Completed deployment
+
+All seven production migrations completed on 2026-10-22. The backend now serves
+100% of traffic on `22a2920e-d192-4a83-bb8c-238a73921f91`; the console serves
+`cd19a9bd-7a8f-4830-b933-57502914fff5`. Live verification preserved credentials,
+token grants and domain ownership. Token last-use timestamps can advance during
+verification. MCP discovery and existing write restrictions passed. See the
+`verification/upgrade-*.json` reports for evidence and the initial test timeout
+failures that passed in separate runs with longer limits.

@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-22",
+  "source": "Live MCP through the existing Open WebUI connection",
+  "list_connections": {
+    "ok": true,
+    "count": 50
+  },
+  "search_actions": {
+    "github.get_current_user": true,
+    "googlechat.send_direct_message": true
+  },
+  "list_apps_github": true,
+  "real_provider_calls": false,
+  "note": "A separate connector-tool search stalled and was cancelled; direct authenticated MCP checks passed."
+}

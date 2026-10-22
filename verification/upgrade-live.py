@@ -33,7 +33,10 @@ for table in ['connections', 'runtime_tokens', 'runtime_policy']:
     query = 'select ' + ','.join('"' + column + '"' for column in columns) + ' from ' + table + ' order by 1'
     expected = [dict(row) for row in before.execute(query)]
     actual = call('/d1/database/528e7976-6cb1-4d9f-9fdd-29f4ad7edac8/query', {'sql': query})[0]['results']
-    assert actual == expected, table + ' differs from the pre-deployment backup; inspect privately'
+    if actual != expected:
+        assert len(actual) == len(expected), table + ' record count changed'
+        changed = {column for old, new in zip(expected, actual) for column in columns if old[column] != new[column]}
+        assert table == 'runtime_tokens' and changed <= {'last_used_at'}, table + ' changed fields: ' + ', '.join(sorted(changed))
     counts[table] = len(actual)
 
 versions = {}
@@ -49,7 +52,8 @@ report = {
     'date': '2026-10-22',
     'versions': versions,
     'domain_owner': domain['service'],
-    'existing_connection_token_policy_fields_unchanged': True,
+    'credentials_and_access_policy_unchanged': True,
+    'runtime_token_last_use_may_advance': True,
     'secret_bindings_preserved': True,
     'counts': counts,
 }
