@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-22",
+  "url": "https://connect.yishaik.com/reports",
+  "versions": {
+    "open-connector": [
+      {
+        "version_id": "5f287754-73a4-466d-946f-ca7228e0ceae",
+        "percentage": 100
+      }
+    ],
+    "open-connector-console": [
+      {
+        "version_id": "c162ae82-e0b8-4a0c-8576-bcaab6ebe23f",
+        "percentage": 100
+      }
+    ]
+  },
+  "inventory_counts": {
+    "connections": 32,
+    "runtime_tokens": 11,
+    "runtime_policy": 0
+  },
+  "credentials_and_access_grants_unchanged": true,
+  "domain_owner_preserved": true,
+  "secret_bindings_preserved": true,
+  "archive": {
+    "count": 957,
+    "earliest": "2026-08-23T21:57:36.697Z",
+    "latest": "2026-10-22T05:35:52.204Z"
+  },
+  "retained_runs_missing_from_archive": 0,
+  "live_read_only_mcp_action_archived_with_key_attribution": true,
+  "unauthenticated_routes": {
+    "/reports": 302,
+    "/api/reports/weekly": 302
+  },
+  "exact_live_probe_found_without_backfill": true,
+  "human_access_login_tested": false,
+  "provider_writes_executed": false
+}

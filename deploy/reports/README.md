@@ -61,3 +61,19 @@ labels are kept outside Git under the private local state directory.
 
 Backup directory:
 `/home/ubuntu/.local/state/open-connector-reports-backup-2026-10-22/`.
+
+## Deployed 2026-10-22
+
+Backend: `5f287754-73a4-466d-946f-ca7228e0ceae` at 100%.
+Console: `c162ae82-e0b8-4a0c-8576-bcaab6ebe23f` at 100%.
+The bootstrap was repeated after activation to cover any actions between schema
+setup and the code switch. A subsequent read-only MCP action was found by its
+exact execution ID in the archive without another backfill. Existing credentials,
+32 connections, 11 runtime tokens and their access grants were preserved.
+Anonymous requests to the report page and API redirect to the existing Access
+login. Human Access sign-in was not performed by the agent. Browser QA used the
+private copy and read-only staging, not an invented dataset.
+
+Evidence: `verification/reports-browser.json`, `reports-schema-rehearsal.json`
+and `reports-live.json`. Re-run `reports-live.py EXECUTION_ID` through Secretbox
+to verify a specific read-only probe without printing keys or payloads.
