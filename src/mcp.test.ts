@@ -1,3 +1,4 @@
+import type { CatalogStore } from "./catalog-store.ts";
 import type { IConnectionStore, StoredConnection } from "./connection-service.ts";
 import type { ActionPolicySnapshot } from "./core/action-policy.ts";
 import type { ActionDefinition, ActionExecutor, ProviderDefinition, ResolvedCredential } from "./core/types.ts";
@@ -8,11 +9,12 @@ import type { RuntimeGrant } from "./server/storage/runtime-token-service.ts";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/client";
 import { describe, expect, it, vi } from "vitest";
-import { createCatalogStore } from "./catalog-store.ts";
+import { createCatalogIndex } from "./catalog-index.ts";
 import { ConnectionService } from "./connection-service.ts";
 import { ActionPolicyService, emptyPolicyRules } from "./core/action-policy.ts";
 import { createMcpServer, listMcpToolSummaries } from "./mcp.ts";
 import { ActionRunner } from "./server/actions/action-runner.ts";
+import { loadCatalogFromAssets } from "./server/cloudflare/catalog-assets.ts";
 
 const echoAction: ActionDefinition = {
   id: "example.echo",
@@ -709,9 +711,8 @@ async function withMcpClient(
   run: (client: Client) => Promise<void>,
   policy: McpPolicyOptions & { signal?: AbortSignal } = {},
 ): Promise<void> {
-  const catalog = createCatalogStore([exampleProvider], {
-    executableActionIds: ["example.echo"],
-  });
+  const catalog = await lazyCatalog(exampleProvider, ["example.echo"]);
+
   const providerLoader = new EchoProviderLoader();
   const connections = new ConnectionService({
     catalog,
@@ -748,9 +749,8 @@ async function withAuthenticatedMcpClient(
   runs = new MemoryRunLogStore(),
   policy: McpPolicyOptions = {},
 ): Promise<void> {
-  const catalog = createCatalogStore([authenticatedProvider], {
-    executableActionIds: ["example_auth.get_account"],
-  });
+  const catalog = await lazyCatalog(authenticatedProvider, ["example_auth.get_account"]);
+
   const providerLoader = new EchoProviderLoader();
   const connections = new ConnectionService({
     catalog,
@@ -900,4 +900,20 @@ class MemoryRunLogStore implements IRunLogStore {
   async list(): Promise<RunLogPage> {
     return { items: this.runs };
   }
+}
+
+/** Exercise the same asynchronous schema boundary the Worker uses, including all policy tests. */
+async function lazyCatalog(provider: ProviderDefinition, executableActionIds: string[]): Promise<CatalogStore> {
+  return loadCatalogFromAssets(
+    {
+      async fetch(request) {
+        const path = new URL(request.url).pathname;
+        if (path === "/catalog/summary.json")
+          return Response.json(createCatalogIndex([{ file: "provider.json", bytes: 0, provider }]));
+        if (path === "/catalog/providers/provider.json") return Response.json(provider);
+        throw new Error(`Unexpected catalog fetch: ${path}`);
+      },
+    },
+    { executableActionIds },
+  );
 }

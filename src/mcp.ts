@@ -9,6 +9,7 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
+import { withActionSchemas } from "./catalog-store.ts";
 import { ConnectionError } from "./connection-service.ts";
 import { createActionSearchIndexProvider, searchActions as searchActionIndex } from "./core/action-search.ts";
 import { describeSchemaType, readSchemaProperties, readSchemaRequired } from "./core/json-schema.ts";
@@ -266,19 +267,30 @@ async function searchActions(
     : options.catalog.actions
         .filter((action) => !input.service || action.service === input.service)
         .slice(0, input.limit);
-  const actions = rankedActions.map(async (action) => ({
-    id: action.id,
-    service: action.service,
-    name: action.name,
-    description: action.description,
-    operationType: action.operationType,
-    capability: summarizeActionCapability(
-      describeActionCapability(action, policy, await getSelectedConnectionSummary(options, action.service, undefined)),
-    ),
-    inputSummary: summarizeInputSchema(action.inputSchema),
-  }));
+  // Each result summarizes its input schema; load the result providers' schemas in one batch.
+  return withActionSchemas(
+    options.catalog,
+    rankedActions.map((action) => action.id),
+    async () => {
+      const actions = rankedActions.map(async (action) => ({
+        id: action.id,
+        service: action.service,
+        name: action.name,
+        description: action.description,
+        operationType: action.operationType,
+        capability: summarizeActionCapability(
+          describeActionCapability(
+            action,
+            policy,
+            await getSelectedConnectionSummary(options, action.service, undefined),
+          ),
+        ),
+        inputSummary: summarizeInputSchema(action.inputSchema),
+      }));
 
-  return successPayload(await Promise.all(actions));
+      return successPayload(await Promise.all(actions));
+    },
+  );
 }
 
 async function getActionGuide(
@@ -304,14 +316,16 @@ async function getActionGuide(
       return errorPayload(connectionDecision.code, connectionDecision.message);
     }
     const capability = describeActionCapability(action, policy, connection);
-    return successPayload({
-      capability,
-      markdown: renderActionMarkdown(action, {
-        transport: { kind: "mcp" },
-        connection: capability.connection,
-        policy: capability.policy,
+    return await withActionSchemas(options.catalog, [actionId], () =>
+      successPayload({
+        capability,
+        markdown: renderActionMarkdown(action, {
+          transport: { kind: "mcp" },
+          connection: capability.connection,
+          policy: capability.policy,
+        }),
       }),
-    });
+    );
   } catch (error) {
     return connectionErrorPayload(error, policy);
   }

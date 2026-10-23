@@ -76,6 +76,8 @@ export type CatalogStore = {
   actions: RuntimeActionDefinition[];
   actionsById: Map<string, RuntimeActionDefinition>;
   executableActionIds: Set<string>;
+  /** Keep schemas available for a read or execution, including across asynchronous work. */
+  withActionSchemas?: <T>(actionIds: Iterable<string>, read: () => T | Promise<T>) => Promise<T>;
 };
 
 export interface CreateCatalogStoreOptions {
@@ -277,4 +279,13 @@ async function readProviderFiles(filePaths: string[]): Promise<ProviderDefinitio
   }
 
   return providers;
+}
+
+/** Read action schemas from either an eager catalog or the asynchronous Worker asset cache. */
+export async function withActionSchemas<T>(
+  catalog: CatalogStore,
+  actionIds: Iterable<string>,
+  read: () => T | Promise<T>,
+): Promise<T> {
+  return catalog.withActionSchemas ? catalog.withActionSchemas(actionIds, read) : read();
 }

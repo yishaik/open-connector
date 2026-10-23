@@ -1,7 +1,9 @@
+import type { CatalogStore } from "../../catalog-store.ts";
 import type { ProviderDefinition } from "../../core/types.ts";
 import type { MiddlewareHandler } from "hono";
 
 import { Hono } from "hono";
+import { withActionSchemas } from "../../catalog-store.ts";
 import { optionalString } from "../../core/cast.ts";
 import { PromiseCache } from "../../core/promise-cache.ts";
 
@@ -29,21 +31,25 @@ export function loadDocsHandler(openapiUrl = "/openapi.json"): Promise<Middlewar
 
 export interface DocsRoutesOptions {
   providers: ProviderDefinition[];
+  catalog?: CatalogStore;
   publicOrigin: string;
   serveDocumentation?: boolean;
 }
 
 /** OpenAPI 3.1 schema and interactive documentation routes. */
-export function createDocsRoutes({ providers, publicOrigin, serveDocumentation }: DocsRoutesOptions): Hono {
+export function createDocsRoutes({ providers, publicOrigin, serveDocumentation, catalog }: DocsRoutesOptions): Hono {
   const app = new Hono();
 
   app.get("/openapi.json", async (context) => {
     const { createOpenApiDocument } = await import("./openapi.ts");
-    return context.json(
-      createOpenApiDocument(providers, {
-        actionId: optionalString(context.req.query("actionId")),
-      }),
-    );
+    const actionId = optionalString(context.req.query("actionId"));
+    const render = () =>
+      context.json(
+        createOpenApiDocument(providers, {
+          actionId,
+        }),
+      );
+    return catalog && actionId ? withActionSchemas(catalog, [actionId], render) : render();
   });
 
   if (serveDocumentation !== false) {

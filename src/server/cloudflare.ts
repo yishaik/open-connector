@@ -35,6 +35,13 @@ interface CloudflareExecutionContext {
   passThroughOnException(): void;
 }
 
+let configuredCatalog: CatalogStore | undefined;
+
+/** Supply a catalog prepared during isolate startup by the embedded deployment entrypoint. */
+export function configureWorkerCatalog(catalog: CatalogStore): void {
+  configuredCatalog = catalog;
+}
+
 const catalogCache = new PromiseCache<CatalogStore>();
 const secretCodecCache = new PromiseCache<ISecretCodec>();
 const appCache = new PromiseCache<ConnectApp>();
@@ -184,6 +191,7 @@ function writeWorkerLog(level: "error" | "info" | "warn"): (fields: unknown, mes
 }
 
 function loadCatalogOnce(assets: AssetsBinding): Promise<CatalogStore> {
+  if (configuredCatalog) return Promise.resolve(configuredCatalog);
   // The catalog depends only on the assets binding, which is fixed for the isolate, so one slot
   // under a constant key covers every request.
   return catalogCache.get("", () =>

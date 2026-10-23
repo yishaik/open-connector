@@ -216,6 +216,7 @@ export class ConnectServer {
       "/",
       createDocsRoutes({
         providers: this.options.catalog.providers,
+        catalog: this.options.catalog,
         publicOrigin: this.options.publicOrigin,
         serveDocumentation: this.options.serveDocumentation,
       }),

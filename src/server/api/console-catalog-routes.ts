@@ -5,6 +5,7 @@ import type { ActionSearchDocument, ActionSearchIndexProvider } from "../../core
 import type { Context } from "hono";
 
 import { Hono } from "hono";
+import { withActionSchemas } from "../../catalog-store.ts";
 import { ConnectionError } from "../../connection-service.ts";
 import { searchActions } from "../../core/action-search.ts";
 import { renderActionMarkdown } from "./action-markdown.ts";
@@ -51,11 +52,16 @@ export function createConsoleCatalogRoutes({
       const authenticated = new Set(
         await connections.listAuthenticatedServices([...new Set(results.map((result) => result.service))]),
       );
-      return results.flatMap((result) => {
-        const action = catalog.actionsById.get(result.id);
-        if (!action) return [];
-        return [serializeActionSearchResult(result, action, authenticated.has(action.service))];
-      });
+      return withActionSchemas(
+        catalog,
+        results.map((result) => result.id),
+        () =>
+          results.flatMap((result) => {
+            const action = catalog.actionsById.get(result.id);
+            if (!action) return [];
+            return [serializeActionSearchResult(result, action, authenticated.has(action.service))];
+          }),
+      );
     });
 
   app.get("/providers", (context) => {
@@ -67,13 +73,30 @@ export function createConsoleCatalogRoutes({
     return context.body(providerSummariesJson, 200, { "Content-Type": "application/json" });
   });
 
-  app.get("/providers/:service", (context) => {
+  app.get("/providers/:service", async (context) => {
     const provider = catalog.providers.find((p) => p.service === context.req.param("service"));
     if (!provider) return notFound(context);
-    return context.json(provider);
+    return withActionSchemas(
+      catalog,
+      provider.actions.map((action) => action.id),
+      () => context.json(provider),
+    );
   });
 
-  app.get("/actions", (context) => context.json(catalog.actions));
+  app.get("/actions", async (context) => {
+    // Serialize each provider before loading the next; the cache stays bounded for this full export.
+    const chunks: string[] = [];
+    for (const provider of catalog.providers) {
+      await withActionSchemas(
+        catalog,
+        provider.actions.map((action) => action.id),
+        () => {
+          if (provider.actions.length) chunks.push(JSON.stringify(provider.actions).slice(1, -1));
+        },
+      );
+    }
+    return context.body(`[${chunks.join(",")}]`, 200, { "Content-Type": "application/json" });
+  });
 
   app.get("/actions/search", async (context) => {
     const query = readSearchQuery(context);
@@ -99,16 +122,19 @@ export function createConsoleCatalogRoutes({
 
     try {
       const policy = (await getPolicySnapshot(context)).evaluate(action);
-      return context.text(
-        renderActionMarkdown(action, {
-          transport: { kind: "http", origin: publicOrigin },
-          connection: await connections.getConnectionSummary(action.service, readConnectionName(context)),
-          policy,
-        }),
-        200,
-        {
-          "content-type": "text/markdown; charset=utf-8",
-        },
+      const connection = await connections.getConnectionSummary(action.service, readConnectionName(context));
+      return withActionSchemas(catalog, [actionId], () =>
+        context.text(
+          renderActionMarkdown(action, {
+            transport: { kind: "http", origin: publicOrigin },
+            connection,
+            policy,
+          }),
+          200,
+          {
+            "content-type": "text/markdown; charset=utf-8",
+          },
+        ),
       );
     } catch (error) {
       if (error instanceof ConnectionError) {
@@ -119,10 +145,10 @@ export function createConsoleCatalogRoutes({
     }
   });
 
-  app.get("/actions/:actionId", (context) => {
+  app.get("/actions/:actionId", async (context) => {
     const action = catalog.actionsById.get(context.req.param("actionId"));
     if (!action) return notFound(context);
-    return context.json(action);
+    return withActionSchemas(catalog, [action.id], () => context.json(action));
   });
 
   return app;

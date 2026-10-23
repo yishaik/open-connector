@@ -1,9 +1,13 @@
+import type { ProviderDefinition } from "../../core/types.ts";
 import type { AssetsBinding } from "./cloudflare-bindings.ts";
 
 import { describe, expect, it } from "vitest";
+import { createCatalogIndex } from "../../catalog-index.ts";
+import { createCatalogStore, withActionSchemas } from "../../catalog-store.ts";
+import { AssetSchemaLoader, CatalogSchemasNotLoadedError } from "./catalog-asset-schemas.ts";
 import { loadCatalogFromAssets } from "./catalog-assets.ts";
 
-const provider = {
+const provider: ProviderDefinition = {
   service: "example",
   displayName: "Example",
   categories: ["Developer Tools"],
@@ -15,6 +19,7 @@ const provider = {
       service: "example",
       name: "ping",
       description: "Ping Example.",
+      operationType: "read",
       requiredScopes: [],
       providerPermissions: [],
       inputSchema: {},
@@ -24,6 +29,94 @@ const provider = {
 };
 
 describe("loadCatalogFromAssets", () => {
+  it("starts with metadata only and preserves eager serialization after loading schemas", async () => {
+    const paths: string[] = [];
+    const assets = memoryAssets({
+      "/catalog/summary.json": createCatalogIndex([{ file: "example.json", bytes: 0, provider }]),
+      "/catalog/providers/example.json": provider,
+    });
+    const catalog = await loadCatalogFromAssets({
+      fetch(request) {
+        paths.push(new URL(request.url).pathname);
+        return assets.fetch(request);
+      },
+    });
+    const eager = createCatalogStore([provider]);
+    expect(paths).toEqual(["/catalog/summary.json"]);
+    expect(catalog.providerSummariesJson).toEqual(eager.providerSummariesJson);
+    expect(catalog.providerSummariesEtag).toBe(eager.providerSummariesEtag);
+    expect(() => catalog.actions[0]!.inputSchema).toThrow(CatalogSchemasNotLoadedError);
+    await withActionSchemas(catalog, ["unknown", "example.ping"], () => {
+      expect(JSON.stringify(catalog.providers)).toBe(JSON.stringify(eager.providers));
+    });
+    await withActionSchemas(catalog, ["example.ping"], () => expect(catalog.actions[0]!.outputSchema).toEqual({}));
+    expect(paths).toEqual(["/catalog/summary.json", "/catalog/providers/example.json"]);
+  });
+
+  it("keeps active schemas pinned through concurrent loads then evicts idle providers", async () => {
+    let requests = 0;
+    const assets = memoryAssets({
+      "/catalog/providers/a.json": provider,
+      "/catalog/providers/b.json": provider,
+    });
+    const loader = new AssetSchemaLoader(
+      {
+        fetch(request) {
+          requests++;
+          return assets.fetch(request);
+        },
+      },
+      1,
+    );
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const first = loader.withFiles(["a.json"], async () => {
+      started();
+      await gate;
+      expect(loader.peek("a.json", "example.ping")).toBeDefined();
+    });
+    await ready;
+    await Promise.all([
+      loader.withFiles(["b.json"], () => expect(loader.peek("b.json", "example.ping")).toBeDefined()),
+      loader.withFiles(["b.json"], () => expect(loader.peek("b.json", "example.ping")).toBeDefined()),
+    ]);
+    expect(requests).toBe(2);
+    expect(loader.peek("a.json", "example.ping")).toBeDefined();
+    release();
+    await first;
+    await loader.withFiles(["b.json"], () => expect(loader.peek("b.json", "example.ping")).toBeDefined());
+    expect(requests).toBe(3);
+    expect(loader.peek("a.json", "example.ping")).toBeUndefined();
+  });
+
+  it("retries failed schema fetches and releases pins when a consumer throws", async () => {
+    let requests = 0;
+    const loader = new AssetSchemaLoader(
+      {
+        async fetch() {
+          requests++;
+          return requests === 1 ? new Response("failed", { status: 500 }) : Response.json(provider);
+        },
+      },
+      1,
+    );
+    await expect(loader.withFiles(["a.json"], () => {})).rejects.toThrow("returned 500");
+    await expect(
+      loader.withFiles(["a.json"], () => {
+        throw new Error("consumer");
+      }),
+    ).rejects.toThrow("consumer");
+    await loader.withFiles(["b.json"], () => expect(loader.peek("b.json", "example.ping")).toBeDefined());
+    expect(loader.peek("a.json", "example.ping")).toBeUndefined();
+    expect(requests).toBe(3);
+  });
+
   it("loads providers from catalog index chunks", async () => {
     const catalog = await loadCatalogFromAssets(
       memoryAssets({

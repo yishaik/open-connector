@@ -8,6 +8,7 @@ import type { IProviderLoader } from "../../providers/provider-loader.ts";
 import type { SaasExecutionService } from "../../saas/saas-execution-service.ts";
 import type { IRunLogStore, RunLog, RunLogCaller, RunLogListInput, RunLogPage } from "../storage/runtime-store.ts";
 
+import { withActionSchemas } from "../../catalog-store.ts";
 import { ConnectionError } from "../../connection-service.ts";
 import { executeAction as executeProviderAction } from "../../core/execution.ts";
 import { withProviderHttpDispatch } from "../../core/provider-http-dispatch.ts";
@@ -64,10 +65,12 @@ export class ActionRunner {
 
   async run(input: RunActionInput): Promise<ActionRunResult | undefined> {
     const action = this.options.catalog.actionsById.get(input.actionId);
-    return withProviderHttpDispatch(
-      { operation: "action", service: action?.service, actionId: action?.id },
-      () => this.runAction(input),
-      this.options.providerHttpDispatch,
+    return withActionSchemas(this.options.catalog, [input.actionId], () =>
+      withProviderHttpDispatch(
+        { operation: "action", service: action?.service, actionId: action?.id },
+        () => this.runAction(input),
+        this.options.providerHttpDispatch,
+      ),
     );
   }
 

@@ -1,10 +1,13 @@
 import type { CatalogStore, ExecutableActionOptions } from "../../catalog-store.ts";
-import type { ProviderDefinition } from "../../core/types.ts";
+import type { ActionDefinition, ProviderDefinition } from "../../core/types.ts";
+import type { CatalogSummaryEntry } from "./catalog-asset-schemas.ts";
 import type { AssetsBinding } from "./cloudflare-bindings.ts";
 
 import { createCatalogStore, resolveExecutableActionIds } from "../../catalog-store.ts";
+import { AssetSchemaLoader, assetBackedProviders, schemaFilesForActions } from "./catalog-asset-schemas.ts";
 
 const catalogIndexPath = "/catalog/index.json";
+const catalogSummaryPath = "/catalog/summary.json";
 const chunkNamePattern = /^apps-\d{4}\.json$/;
 const jsonContentTypePattern = /^application\/(?:[\w.+-]+\+)?json$/i;
 
@@ -18,6 +21,14 @@ export async function loadCatalogFromAssets(
   assets: AssetsBinding,
   options: ExecutableActionOptions = {},
 ): Promise<CatalogStore> {
+  // Prefer the schema-free summary: parsing every action schema at isolate start costs most of the
+  // Workers CPU budget, while list views and policy checks need metadata only. Builds without a
+  // summary fall back to the full chunks below.
+  const summary = await readOptionalJsonAsset(assets, catalogSummaryPath);
+  if (summary !== undefined) {
+    return createAssetBackedCatalog(assets, parseCatalogSummary(summary), options);
+  }
+
   const index = parseCatalogIndex(await readJsonAsset(assets, catalogIndexPath), catalogIndexPath);
   const chunks = await Promise.all(index.chunks.map((chunk) => requireProviderArrayAsset(assets, `/catalog/${chunk}`)));
   const providers = chunks.flat();
@@ -33,6 +44,42 @@ export async function loadCatalogFromAssets(
 function createCatalog(providers: ProviderDefinition[], options: ExecutableActionOptions): CatalogStore {
   return createCatalogStore(providers, {
     executableActionIds: resolveExecutableActionIds(providers, options),
+  });
+}
+
+/**
+ * Build a catalog whose action schemas load per provider on demand. Callers that read schemas await
+ * `withActionSchemas`; a missed read throws `CatalogSchemasNotLoadedError` naming the files.
+ */
+export function createAssetBackedCatalog(
+  assets: AssetsBinding,
+  entries: CatalogSummaryEntry[],
+  options: ExecutableActionOptions,
+): CatalogStore {
+  const loader = new AssetSchemaLoader(assets);
+  const store = createCatalog(assetBackedProviders(entries, loader), options);
+  store.withActionSchemas = async (actionIds, read) => {
+    const actions: (ActionDefinition | undefined)[] = [];
+    for (const actionId of actionIds) {
+      actions.push(store.actionsById.get(actionId));
+    }
+    return loader.withFiles(schemaFilesForActions(actions), read);
+  };
+  return store;
+}
+
+function parseCatalogSummary(value: unknown): CatalogSummaryEntry[] {
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.providers)) {
+    throw new Error(`Cloudflare asset catalog summary must be { version: 1, providers: [...] }: ${catalogSummaryPath}`);
+  }
+  return value.providers.map((entry, position) => {
+    if (!isRecord(entry) || typeof entry.file !== "string" || !isRecord(entry.provider)) {
+      throw new Error(`Cloudflare asset catalog summary entry ${position} must have a file and a provider`);
+    }
+    if (!/^[\w.-]+\.json$/.test(entry.file)) {
+      throw new Error(`Cloudflare asset catalog summary entry ${position} has an invalid file name`);
+    }
+    return { file: entry.file, provider: entry.provider as unknown as CatalogSummaryEntry["provider"] };
   });
 }
 
@@ -106,6 +153,21 @@ async function readJsonAsset(assets: AssetsBinding, path: string): Promise<unkno
     throw assetRequestError(path, `returned content type ${contentType ?? "(none)"} instead of JSON`);
   }
 
+  return await readResponseJson(response, path);
+}
+
+/**
+ * Read an asset that older builds may lack. A 404 or the SPA shell (non-JSON 200) both mean "absent";
+ * any other failure is still an error so a broken deployment is not mistaken for an old one.
+ */
+async function readOptionalJsonAsset(assets: AssetsBinding, path: string): Promise<unknown> {
+  const response = await fetchAsset(assets, path);
+  if (response.status === 404 || (response.ok && !isJsonContentType(response.headers.get("content-type")))) {
+    return undefined;
+  }
+  if (!response.ok) {
+    throw assetRequestError(path, `returned ${response.status}`);
+  }
   return await readResponseJson(response, path);
 }
 

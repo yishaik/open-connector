@@ -1,6 +1,6 @@
 {
   "name": "open-connector",
-  "main": "../../src/server/cloudflare.ts",
+  "main": "../../src/server/cloudflare-embedded.ts",
   "compatibility_date": "2026-10-21",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": false,

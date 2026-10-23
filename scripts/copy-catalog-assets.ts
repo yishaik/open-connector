@@ -1,5 +1,8 @@
+import type { ProviderDefinition } from "../src/core/types.ts";
+
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createCatalogIndex } from "../src/catalog-index.ts";
 
 export const defaultCatalogChunkBytes = 4 * 1024 * 1024;
 
@@ -29,9 +32,11 @@ export async function copyCatalogAssets(options: CopyCatalogAssetsOptions): Prom
     entries.map(async (entry) => {
       const content = await readFile(join(options.sourceDir, entry.name), "utf8");
       try {
+        const provider = JSON.parse(content) as ProviderDefinition;
         return {
           filename: entry.name,
-          json: JSON.stringify(JSON.parse(content) as unknown),
+          json: JSON.stringify(provider),
+          provider,
         };
       } catch (cause) {
         throw new Error(`Failed to parse catalog provider file: ${entry.name}`, { cause });
@@ -41,7 +46,7 @@ export async function copyCatalogAssets(options: CopyCatalogAssetsOptions): Prom
   const chunks = createChunks(providers, maxChunkBytes);
 
   await rm(options.targetDir, { recursive: true, force: true });
-  await mkdir(options.targetDir, { recursive: true });
+  await mkdir(join(options.targetDir, "providers"), { recursive: true });
 
   const chunkNames = chunks.map((_, index) => `apps-${index.toString().padStart(4, "0")}.json`);
   const index: CatalogAssetIndex = {
@@ -50,7 +55,19 @@ export async function copyCatalogAssets(options: CopyCatalogAssetsOptions): Prom
     chunks: chunkNames,
   };
 
+  const summary = `${JSON.stringify(
+    createCatalogIndex(
+      providers.map((entry) => ({
+        file: entry.filename,
+        bytes: Buffer.byteLength(entry.json),
+        provider: { ...entry.provider, actions: entry.provider.actions ?? [] },
+      })),
+    ),
+  )}\n`;
   await Promise.all([
+    writeFile(join(options.targetDir, "summary.json"), summary),
+    writeFile(join(options.targetDir, "../catalog-summary.txt"), summary),
+    ...providers.map((entry) => writeFile(join(options.targetDir, "providers", entry.filename), entry.json)),
     writeFile(join(options.targetDir, "index.json"), `${JSON.stringify(index)}\n`),
     ...chunks.map((chunk, index) => writeFile(join(options.targetDir, chunkNames[index]!), chunk)),
   ]);

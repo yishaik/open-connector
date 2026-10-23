@@ -6,6 +6,7 @@ import type { SaasProjectService } from "../../saas/saas-project-service.ts";
 import type { Context } from "hono";
 
 import { Hono } from "hono";
+import { withActionSchemas } from "../../catalog-store.ts";
 import { DEFAULT_ACTION_SEARCH_LIMIT, searchActions } from "../../core/action-search.ts";
 import { optionalString } from "../../core/cast.ts";
 import {
@@ -110,13 +111,18 @@ export function createRuntimeCatalogRoutes({
     const authenticated = new Set(
       await connections.listAuthenticatedServices([...new Set(results.map((result) => result.service))]),
     );
-    return results.flatMap((result) => {
-      const action = catalog.actionsById.get(result.id);
-      if (!action) {
-        return [];
-      }
-      return [serializeActionSearchResult(result, action, authenticated.has(action.service))];
-    });
+    return withActionSchemas(
+      catalog,
+      results.map((result) => result.id),
+      () =>
+        results.flatMap((result) => {
+          const action = catalog.actionsById.get(result.id);
+          if (!action) {
+            return [];
+          }
+          return [serializeActionSearchResult(result, action, authenticated.has(action.service))];
+        }),
+    );
   };
 
   app.get("/providers/:service/setup", async (context) => {
@@ -171,7 +177,7 @@ export function createRuntimeCatalogRoutes({
     return writeRuntimeSuccess(context, providers.map(serializeRuntimeProvider));
   });
 
-  app.get("/actions", (context) => {
+  app.get("/actions", async (context) => {
     const service = optionalString(context.req.query("service"));
     if (!service) {
       const services = [...new Set(catalog.actions.map((action) => action.service))];
@@ -179,7 +185,11 @@ export function createRuntimeCatalogRoutes({
     }
 
     const actions = catalog.actions.filter((action) => action.service === service);
-    return writeRuntimeSuccess(context, actions.map(serializeRuntimeAction));
+    return withActionSchemas(
+      catalog,
+      actions.map((action) => action.id),
+      () => writeRuntimeSuccess(context, actions.map(serializeRuntimeAction)),
+    );
   });
 
   app.get("/actions/search", async (context) => {
@@ -200,14 +210,14 @@ export function createRuntimeCatalogRoutes({
     return writeRuntimeSuccess(context, await serializeSearchResults(results));
   });
 
-  app.get("/actions/:actionId", (context) => {
+  app.get("/actions/:actionId", async (context) => {
     const actionId = context.req.param("actionId");
     const action = catalog.actionsById.get(actionId);
     if (!action) {
       return writeRuntimeFailure(context, unknownActionFailure(actionId));
     }
 
-    return writeRuntimeSuccess(context, serializeRuntimeAction(action));
+    return withActionSchemas(catalog, [actionId], () => writeRuntimeSuccess(context, serializeRuntimeAction(action)));
   });
 
   return app;
