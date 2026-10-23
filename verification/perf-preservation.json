@@ -1,0 +1,22 @@
+{
+  "checks": {
+    "connections_preserved": true,
+    "runtime_tokens_preserved": true,
+    "runtime_policy_preserved": true,
+    "open-connector_bindings_preserved": true,
+    "open-connector-console_bindings_preserved": true,
+    "console_version_preserved": true,
+    "domains_preserved": true
+  },
+  "backend_versions": [
+    {
+      "version_id": "35275b26-c552-4746-a9b3-34e9ee2b219d",
+      "percentage": 100
+    }
+  ],
+  "counts": {
+    "connections": 32,
+    "runtime_tokens": 11,
+    "runtime_policy": 0
+  }
+}

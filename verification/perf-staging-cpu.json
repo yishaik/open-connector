@@ -1,0 +1,179 @@
+{
+  "date": "2026-10-23",
+  "versionId": "ff3b4181-85dc-499c-b9bc-1cd91765aa16",
+  "requestCount": 28,
+  "maximumCpuMs": 1151,
+  "medianCpuMs": 139.0,
+  "outcomes": ["ok"],
+  "events": [
+    {
+      "cpuMs": 106,
+      "wallMs": 203,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 237,
+      "wallMs": 293,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 212,
+      "wallMs": 328,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 130,
+      "wallMs": 303,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 141,
+      "wallMs": 266,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 622,
+      "wallMs": 772,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 273,
+      "wallMs": 495,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 113,
+      "wallMs": 144,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 116,
+      "wallMs": 173,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 119,
+      "wallMs": 260,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 340,
+      "wallMs": 467,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 180,
+      "wallMs": 278,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 1151,
+      "wallMs": 1619,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 125,
+      "wallMs": 320,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 103,
+      "wallMs": 137,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 115,
+      "wallMs": 154,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 137,
+      "wallMs": 247,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 198,
+      "wallMs": 331,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 132,
+      "wallMs": 234,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 644,
+      "wallMs": 808,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 109,
+      "wallMs": 307,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 113,
+      "wallMs": 216,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 114,
+      "wallMs": 179,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 236,
+      "wallMs": 287,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 244,
+      "wallMs": 305,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 250,
+      "wallMs": 317,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 117,
+      "wallMs": 210,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 340,
+      "wallMs": 421,
+      "outcome": "ok",
+      "exceptionCount": 0
+    }
+  ],
+  "limitsNote": "Workers Free documents 10ms per request with occasional burst flexibility. Passing probes above 10ms does not establish sustained compliance. No plan was changed."
+}

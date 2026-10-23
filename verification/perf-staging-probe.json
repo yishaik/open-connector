@@ -1,0 +1,230 @@
+{
+  "date": "2026-10-23",
+  "origin": "https://open-connector-cpu-staging-20261023.yishai-k.workers.dev",
+  "requests": [
+    {
+      "name": "initialize-0",
+      "status": 200,
+      "wallMs": 2059.9,
+      "verified": true,
+      "responseBytes": 1123,
+      "responseSha256": "d4a89b1a40a6a81e2426a094ae5f1cbf75785926a7630201720157549474710f"
+    },
+    {
+      "name": "tools/list-0",
+      "status": 200,
+      "wallMs": 3755.3,
+      "verified": true,
+      "responseBytes": 4912,
+      "responseSha256": "4db0ed757677fdd0f3ca96389e88241f8eeb7798bb3b88704c72e435ad47ac00"
+    },
+    {
+      "name": "list_connections-0",
+      "status": 200,
+      "wallMs": 4018.5,
+      "verified": true,
+      "responseBytes": 15694,
+      "responseSha256": "51cf36fe4db08d8ad6dfaf8015cf3079733eaa673d02a7bf9c43e2e3d2a1dfcd"
+    },
+    {
+      "name": "list_apps-0",
+      "status": 200,
+      "wallMs": 2016.8,
+      "verified": true,
+      "responseBytes": 652,
+      "responseSha256": "1a06c3089cb6e0fedb32cc2f06d9f0a15f2333f1794569f818777d3ca398f353"
+    },
+    {
+      "name": "get_action_guide-0",
+      "status": 200,
+      "wallMs": 2070.4,
+      "verified": true,
+      "responseBytes": 4391,
+      "responseSha256": "86e38bfe53193f754b80bfa374cc99110b1b96550816c245975619ddbe960e6e"
+    },
+    {
+      "name": "search_actions-0",
+      "status": 200,
+      "wallMs": 2453.0,
+      "verified": true,
+      "responseBytes": 5616,
+      "responseSha256": "a0b410b7d973ca17dc58bc406871d9d4603c23f3bc8ad0fa30529d1c1ad5fbbd"
+    },
+    {
+      "name": "execute_action-0",
+      "status": 200,
+      "wallMs": 3536.8,
+      "verified": true,
+      "responseBytes": 1482,
+      "responseSha256": "6d48f1528b93cf9149a4341fd28c731047fc7d723eeb5343b1c4c824099f74f8"
+    },
+    {
+      "name": "initialize-1",
+      "status": 200,
+      "wallMs": 1960.3,
+      "verified": true,
+      "responseBytes": 1123,
+      "responseSha256": "d4a89b1a40a6a81e2426a094ae5f1cbf75785926a7630201720157549474710f"
+    },
+    {
+      "name": "tools/list-1",
+      "status": 200,
+      "wallMs": 1940.8,
+      "verified": true,
+      "responseBytes": 4912,
+      "responseSha256": "4db0ed757677fdd0f3ca96389e88241f8eeb7798bb3b88704c72e435ad47ac00"
+    },
+    {
+      "name": "list_connections-1",
+      "status": 200,
+      "wallMs": 2018.1,
+      "verified": true,
+      "responseBytes": 15694,
+      "responseSha256": "51cf36fe4db08d8ad6dfaf8015cf3079733eaa673d02a7bf9c43e2e3d2a1dfcd"
+    },
+    {
+      "name": "list_apps-1",
+      "status": 200,
+      "wallMs": 4348.2,
+      "verified": true,
+      "responseBytes": 652,
+      "responseSha256": "1a06c3089cb6e0fedb32cc2f06d9f0a15f2333f1794569f818777d3ca398f353"
+    },
+    {
+      "name": "get_action_guide-1",
+      "status": 200,
+      "wallMs": 2069.1,
+      "verified": true,
+      "responseBytes": 4391,
+      "responseSha256": "86e38bfe53193f754b80bfa374cc99110b1b96550816c245975619ddbe960e6e"
+    },
+    {
+      "name": "search_actions-1",
+      "status": 200,
+      "wallMs": 6338.6,
+      "verified": true,
+      "responseBytes": 5616,
+      "responseSha256": "a0b410b7d973ca17dc58bc406871d9d4603c23f3bc8ad0fa30529d1c1ad5fbbd"
+    },
+    {
+      "name": "execute_action-1",
+      "status": 200,
+      "wallMs": 1986.4,
+      "verified": true,
+      "responseBytes": 1482,
+      "responseSha256": "6efce7cc45101cd9f9b05f94107eb80da40d7faf43d1eb930d8b36b251a3c9b7"
+    },
+    {
+      "name": "initialize-2",
+      "status": 200,
+      "wallMs": 1791.1,
+      "verified": true,
+      "responseBytes": 1123,
+      "responseSha256": "d4a89b1a40a6a81e2426a094ae5f1cbf75785926a7630201720157549474710f"
+    },
+    {
+      "name": "tools/list-2",
+      "status": 200,
+      "wallMs": 1842.4,
+      "verified": true,
+      "responseBytes": 4912,
+      "responseSha256": "4db0ed757677fdd0f3ca96389e88241f8eeb7798bb3b88704c72e435ad47ac00"
+    },
+    {
+      "name": "list_connections-2",
+      "status": 200,
+      "wallMs": 2005.6,
+      "verified": true,
+      "responseBytes": 15694,
+      "responseSha256": "51cf36fe4db08d8ad6dfaf8015cf3079733eaa673d02a7bf9c43e2e3d2a1dfcd"
+    },
+    {
+      "name": "list_apps-2",
+      "status": 200,
+      "wallMs": 3907.3,
+      "verified": true,
+      "responseBytes": 652,
+      "responseSha256": "1a06c3089cb6e0fedb32cc2f06d9f0a15f2333f1794569f818777d3ca398f353"
+    },
+    {
+      "name": "get_action_guide-2",
+      "status": 200,
+      "wallMs": 1901.5,
+      "verified": true,
+      "responseBytes": 4391,
+      "responseSha256": "86e38bfe53193f754b80bfa374cc99110b1b96550816c245975619ddbe960e6e"
+    },
+    {
+      "name": "search_actions-2",
+      "status": 200,
+      "wallMs": 2469.3,
+      "verified": true,
+      "responseBytes": 5616,
+      "responseSha256": "a0b410b7d973ca17dc58bc406871d9d4603c23f3bc8ad0fa30529d1c1ad5fbbd"
+    },
+    {
+      "name": "execute_action-2",
+      "status": 200,
+      "wallMs": 2002.0,
+      "verified": true,
+      "responseBytes": 1482,
+      "responseSha256": "df956e84b295159f4062541805d2c90802395a50185b92136ed1662fe8c11a9c"
+    },
+    {
+      "name": "/api/providers",
+      "status": 200,
+      "wallMs": 2108.9,
+      "verified": true,
+      "responseBytes": 9884409,
+      "responseSha256": "05a2d5b2ae66a4c7a9075f76fbd53bdecef0efa0e4a162430a9a3590a744aac2"
+    },
+    {
+      "name": "/api/actions/hackernews.get_item",
+      "status": 200,
+      "wallMs": 2134.7,
+      "verified": true,
+      "responseBytes": 1805,
+      "responseSha256": "4ee94be04472409829346451a3be642a30658b9fa4e5fb0c6f1a79fcc9a6a456"
+    },
+    {
+      "name": "/api/providers/hackernews",
+      "status": 200,
+      "wallMs": 3565.6,
+      "verified": true,
+      "responseBytes": 18773,
+      "responseSha256": "02cee220b8d9625f0d9cc52389f14d271c5fd72d35975a0421bd69cbced59316"
+    },
+    {
+      "name": "/v1/actions/hackernews.get_item",
+      "status": 200,
+      "wallMs": 3895.1,
+      "verified": true,
+      "responseBytes": 1897,
+      "responseSha256": "647fc2e57e600aa9690beab070d6a4594bd66801f18e2a24509ab38cc19c695d"
+    },
+    {
+      "name": "/v1/actions?service=hackernews",
+      "status": 200,
+      "wallMs": 3479.8,
+      "verified": true,
+      "responseBytes": 19125,
+      "responseSha256": "d7221dd1862a12af4655d2ba61d6e7921d83b7f490dc0b921c358b1a0a83a7ec"
+    },
+    {
+      "name": "/api/actions/hackernews.get_item/agent.md",
+      "status": 200,
+      "wallMs": 1910.9,
+      "verified": true,
+      "responseBytes": 1512,
+      "responseSha256": "74a2b05a8695dca5aa88c528e922f29534a767ba828c49f50fd827e6c410ae1c"
+    },
+    {
+      "name": "/openapi.json?actionId=hackernews.get_item",
+      "status": 200,
+      "wallMs": 3515.6,
+      "verified": true,
+      "responseBytes": 166420,
+      "responseSha256": "82f2f315410e18a08176cce8b5e7e68df85a0947455d25cd0ab4044579a2d41a"
+    }
+  ]
+}

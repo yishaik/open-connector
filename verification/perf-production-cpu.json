@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-23",
+  "versionId": "35275b26-c552-4746-a9b3-34e9ee2b219d",
+  "requestCount": 9,
+  "maximumCpuMs": 1134,
+  "medianCpuMs": 145,
+  "outcomes": ["ok"],
+  "events": [
+    {
+      "cpuMs": 116,
+      "wallMs": 295,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 130,
+      "wallMs": 440,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 112,
+      "wallMs": 247,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 145,
+      "wallMs": 453,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 160,
+      "wallMs": 383,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 131,
+      "wallMs": 358,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 259,
+      "wallMs": 341,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 294,
+      "wallMs": 620,
+      "outcome": "ok",
+      "exceptionCount": 0
+    },
+    {
+      "cpuMs": 1134,
+      "wallMs": 1483,
+      "outcome": "ok",
+      "exceptionCount": 0
+    }
+  ],
+  "limitsNote": "Workers Free documents 10ms per request with occasional burst flexibility. Passing probes above 10ms does not establish sustained compliance. No plan was changed."
+}

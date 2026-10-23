@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-23",
+  "requests": [
+    {
+      "name": "initialize",
+      "status": 500,
+      "wallMs": 4146.9,
+      "jsonRpcError": null,
+      "toolOk": null,
+      "toolError": null
+    },
+    {
+      "name": "tools/list",
+      "status": 200,
+      "wallMs": 142.8,
+      "jsonRpcError": null,
+      "toolOk": null,
+      "toolError": null,
+      "tools": ["list_apps", "list_connections", "search_actions", "get_action_guide", "execute_action"]
+    },
+    {
+      "name": "list_connections",
+      "status": 200,
+      "wallMs": 238.6,
+      "jsonRpcError": null,
+      "toolOk": true,
+      "toolError": null
+    },
+    {
+      "name": "list_apps",
+      "status": 200,
+      "wallMs": 2922.5,
+      "jsonRpcError": null,
+      "toolOk": true,
+      "toolError": null
+    },
+    {
+      "name": "get_action_guide",
+      "status": 200,
+      "wallMs": 3187.8,
+      "jsonRpcError": null,
+      "toolOk": false,
+      "toolError": "unknown_action"
+    },
+    {
+      "name": "search_actions",
+      "status": 500,
+      "wallMs": 186.8,
+      "jsonRpcError": null,
+      "toolOk": null,
+      "toolError": null
+    }
+  ]
+}
