@@ -1,0 +1,464 @@
+{
+  "date": "2026-11-13",
+  "basis": "Public plan sections + official REST API directory, not account inventory; product list may depend on locale/contract. APIs not in directory require research. No connection or implementation is implied.",
+  "apps": [
+    {
+      "name": "Directory",
+      "anchor": "zohodirectory",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zohodirectory",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/directory/api/v2/introduction/#organization-id",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "App/device management",
+      "anchor": "mdm",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#mdm",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "CRM",
+      "anchor": "zcrm",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcrm",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/crm/developer/docs/api/v8/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Bigin",
+      "anchor": "zbigin",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zbigin",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.bigin.com/developer/docs/apis/v2/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Sites",
+      "anchor": "zsites",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zsites",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Bookings",
+      "anchor": "zbookings",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zbookings",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/bookings/help/api/v1/get-appointment.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "SalesIQ",
+      "anchor": "zsalesiq",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zsalesiq",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/salesiq/help/developer-section/rest-api-v2.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Campaigns",
+      "anchor": "zcampaigns",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcampaigns",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/campaigns/help/developers/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Social",
+      "anchor": "zsocial",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zsocial",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Survey",
+      "anchor": "zsurvey",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zsurvey",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Forms",
+      "anchor": "zforms",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zforms",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "PageSense",
+      "anchor": "zpagesense",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zpagesense",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/pagesense/developerguide/apidocs/absplittestoverview.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Backstage",
+      "anchor": "zbackstage",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zbackstage",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/backstage/api/v3/introduction.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Marketing Automation",
+      "anchor": "zmarketingautomation",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zmarketingautomation",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/marketingautomation/help/developers/v1/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Thrive",
+      "anchor": "zthrive",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zthrive",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/thrive/resources/developer-guide/terminology.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "LandingPage",
+      "anchor": "zlandingpage",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zlandingpage",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Desk",
+      "anchor": "zdesk",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zdesk",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://desk.zoho.com/DeskAPIDocument#Introduction",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Assist",
+      "anchor": "zassist",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zassist",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/assist/api/introduction.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Lens",
+      "anchor": "zlens",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zlens",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/lens/resources/api/introduction.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Mail",
+      "anchor": "zmail",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zmail",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/mail/help/api/overview.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Cliq",
+      "anchor": "zcliq",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcliq",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/cliq/help/restapi/v2/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Projects",
+      "anchor": "zprojects",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zprojects",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://projects.zoho.com/api-docs#Introduction",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Sprints",
+      "anchor": "zsprints",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zsprints",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://sprints.zoho.com/apidoc.html#Overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Connect",
+      "anchor": "zconnect",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zconnect",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/connect/api/intro.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Learn",
+      "anchor": "zlearn",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zlearn",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/learn/api/about-zoho-learn-api.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "TeamInbox",
+      "anchor": "zteaminbox",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zteaminbox",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "WorkDrive",
+      "anchor": "zworkdrive",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zworkdrive",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://workdrive.zoho.com/apidocs/v1/overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Sign",
+      "anchor": "zsign",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zsign",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/sign/api/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Vault",
+      "anchor": "zvault",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zvault",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/vault/api/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Meeting",
+      "anchor": "zmeeting",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zmeeting",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/meeting/api-integration.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Notebook",
+      "anchor": "znotebook",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#znotebook",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Vani",
+      "anchor": "zvani",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zvani",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.vanihq.com/resources/api/doc/#introduction",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Books",
+      "anchor": "zbooks",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zbooks",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/books/api/v3/introduction/#overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Invoice",
+      "anchor": "zinvoice",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zinvoice",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/invoice/api/v3/introduction/#overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Billing",
+      "anchor": "zbilling",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zbilling",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/billing/api/v1/introduction/#overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Expense",
+      "anchor": "zexpense",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zexpense",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/expense/api/v1/introduction/#overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Inventory",
+      "anchor": "zinventory",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zinventory",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/inventory/api/v1/introduction/#overview",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Checkout",
+      "anchor": "zcheckout",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcheckout",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Payroll",
+      "anchor": "zpayroll",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zpayroll",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Commerce",
+      "anchor": "zcommerce",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcommerce",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/commerce/api/introduction.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "People",
+      "anchor": "zpeople",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zpeople",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/people/api/overview.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Recruit",
+      "anchor": "zrecruit",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zrecruit",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/recruit/developer-guide/apiv2/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Contracts",
+      "anchor": "zcontracts",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcontracts",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/contracts/api/introduction.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Creator",
+      "anchor": "zcreator",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcreator",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/creator/help/api/v2/",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Analytics",
+      "anchor": "zanalytics",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zanalytics",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://www.zoho.com/analytics/api/v2/introduction.html",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "DataPrep",
+      "anchor": "zdataprep",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zdataprep",
+      "account_entitlement": "unverified",
+      "api_documentation": "https://help.zoho.com/portal/en/kb/dataprep-2-0/rest-apis/articles/zoho-dataprep-rest-apis",
+      "status": "API docs listed; endpoint review pending",
+      "implementation": "not started"
+    },
+    {
+      "name": "Flow",
+      "anchor": "zflow",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zflow",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "RPA",
+      "anchor": "zrpa",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zrpa",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Log360 Cloud",
+      "anchor": "zlog360c",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zlog360c",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "CommandCenter",
+      "anchor": "zcommandcenter",
+      "plan_source": "https://www.zoho.com/one/plan-details.html#zcommandcenter",
+      "account_entitlement": "unverified",
+      "api_documentation": null,
+      "status": "API discovery pending; absence from directory is not proof of no API",
+      "implementation": "not started"
+    },
+    {
+      "name": "Voice",
+      "plan_source": "https://www.zoho.com/voice/pricing.html",
+      "account_entitlement": "separate subscription per official FAQ; actual account unverified",
+      "api_documentation": "https://www.zoho.com/voice/api/getting-started.html",
+      "status": "API overview and call-log read endpoint verified",
+      "implementation": "not started"
+    }
+  ]
+}

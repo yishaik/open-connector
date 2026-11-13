@@ -1,0 +1,6 @@
+# Review status — 2026-11-13
+
+2026-11-13: Fresh Understanding and Challenge agents reviewed the design and source read-only. Accepted: Desk org must be frozen per connection through existing client extra fields; mutable default config during consent is unsafe, so snapshot normalized config into encrypted pending state and resulting credential; callback raw error logging contradicts confidentiality contract, so sanitize it; release acceptance is per product; broader apps remain explicit backlog with completion evidence. No source implementation made. Endpoint/scope and region readiness gates remain intentional and unresolved.
+Readiness: ready to deliver discovery, not ready for provider implementation. Accepted final clarifications: explicitly require encrypted-storage capability for all new Zoho snapshots (existing codecs can be plaintext), and compare frozen credential/config identities so changing service defaults does not invalidate old connections. No independent implementation verification occurred.
+
+These reviews checked the written proposal and selected existing source. They did not validate a Zoho implementation, a real account, every product endpoint, or a production release.
