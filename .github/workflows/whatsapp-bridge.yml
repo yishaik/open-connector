@@ -1,0 +1,33 @@
+name: WhatsApp connector checks
+on:
+  pull_request:
+    paths:
+      - 'src/providers/whatsapp_personal/**'
+      - 'examples/whatsapp-bridge/**'
+      - '.github/workflows/whatsapp-bridge.yml'
+permissions:
+  contents: read
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run typecheck
+  bridge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/whatsapp-bridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: examples/whatsapp-bridge/go.mod
+          cache: false
+      - run: go mod tidy
+      - run: go test -race ./...
+      - run: go vet ./...
