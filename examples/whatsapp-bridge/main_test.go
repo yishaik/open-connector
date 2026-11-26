@@ -29,3 +29,11 @@ func TestSendIsOnlyQueued(t *testing.T) {
  w:=httptest.NewRecorder();b.requestSend(w,in);if w.Code!=200||!strings.Contains(w.Body.String(),"pending"){t.Fatal(w.Code)}
  in.Text="changed";w=httptest.NewRecorder();b.requestSend(w,in);if w.Code!=409{t.Fatal(w.Code)}
 }
+
+func TestSendDisabledByDefault(t *testing.T) {
+ b:=&Bridge{runtime:strings.Repeat("r",32),allow:map[string]bool{"allowed":true}}
+ r:=httptest.NewRequest("POST","/v1/actions/send_message",strings.NewReader(`{"chatId":"allowed","text":"test","requestId":"unique"}`))
+ r.Header.Set("Authorization","Bearer "+b.runtime)
+ w:=httptest.NewRecorder();b.action(w,r)
+ if w.Code!=http.StatusForbidden{t.Fatal(w.Code)}
+}
