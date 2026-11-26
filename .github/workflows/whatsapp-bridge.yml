@@ -5,6 +5,7 @@ on:
       - 'src/providers/whatsapp_personal/**'
       - 'examples/whatsapp-bridge/**'
       - 'web/src/providers-page.tsx'
+      - 'web/provider-icons-plugin.ts'
       - 'src/server/actions/action-runner.ts'
       - '.github/workflows/whatsapp-bridge.yml'
 permissions:
@@ -13,11 +14,23 @@ jobs:
   provider:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - run: npm ci
+      - name: Report exact lint diagnostics
+        if: always()
+        run: npx --no-install oxlint --format json .
+        continue-on-error: true
+      - name: Show formatting patch for connector changes
+        if: always()
+        run: |
+          npx --no-install oxfmt src/providers/whatsapp_personal web/provider-icons-plugin.ts web/src/providers-page.tsx src/server/actions/action-runner.ts
+          git diff -- src/providers/whatsapp_personal web/provider-icons-plugin.ts web/src/providers-page.tsx src/server/actions/action-runner.ts
+          git restore -- src/providers/whatsapp_personal web/provider-icons-plugin.ts web/src/providers-page.tsx src/server/actions/action-runner.ts
       - run: npm run typecheck
       - run: npm run build:web
   bridge:
@@ -26,7 +39,9 @@ jobs:
       run:
         working-directory: examples/whatsapp-bridge
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v5
         with:
           go-version-file: examples/whatsapp-bridge/go.mod
