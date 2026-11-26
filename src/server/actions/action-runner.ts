@@ -166,8 +166,10 @@ export class ActionRunner {
       runtimeTokenName: input.runtimeTokenName,
       request: input.request,
       policy,
-      inputSummary: this.summarizeAuditValue(input.input, logContext),
-      outputSummary: result.ok ? this.summarizeAuditValue(result.output, logContext) : undefined,
+      inputSummary: action.service === "whatsapp_personal" ? "[private WhatsApp payload]" : this.summarizeAuditValue(input.input, logContext),
+      outputSummary: result.ok
+        ? action.service === "whatsapp_personal" ? "[private WhatsApp payload]" : this.summarizeAuditValue(result.output, logContext)
+        : undefined,
       ...auditError,
     };
 
