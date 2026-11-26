@@ -18,7 +18,7 @@ Open the protected /owner page in a computer browser using HTTP Basic username o
 
 ## Docker Compose on an encrypted Linux host
 
-Copy `.env.example` to `.env` (chmod 600), configure secrets and an existing encrypted data directory, and run `./start.sh`. The script requires a Linux block device backed by dm-crypt, refuses an unencrypted or unverified mount, and starts the bridge on loopback only. Configure the protected HTTPS tunnel separately; no public port is opened by Compose. The host administrator must confirm the volume and backup policy. For a secondary-account development test only, use the manual instructions above.
+Copy `.env.example` to `.env` (chmod 600), configure secrets and an existing encrypted data directory, and run `bash start.sh`. The script requires a Linux block device backed by dm-crypt, refuses an unencrypted or unverified mount, and starts the bridge on loopback only. Configure the protected HTTPS tunnel separately; no public port is opened by Compose. The host administrator must confirm the volume and backup policy. For a secondary-account development test only, use the manual instructions above.
 
 ## Connector
 
