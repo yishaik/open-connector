@@ -7,6 +7,7 @@ import type {
   RuntimeTokenSummary,
 } from "./model";
 import type { PolicyEditorDraft, PolicyEvaluation, PolicyResource } from "./policy";
+import type { TokenGrantChange } from "./token-grant-editor";
 import type { ReactNode, SubmitEvent } from "react";
 
 import { useTranslate } from "@embra/i18n/react";
@@ -46,9 +47,9 @@ import {
   validatePolicyEditorDraft,
 } from "./policy";
 import { PolicyEditor } from "./policy-editor";
-import { TokenGrantEditor, type TokenGrantChange } from "./token-grant-editor";
 import { PolicySuggestionInput } from "./policy-suggestion-input";
 import { Badge, EmptyState, FormStatus } from "./shared-ui";
+import { TokenGrantEditor } from "./token-grant-editor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
