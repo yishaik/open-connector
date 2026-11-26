@@ -15,6 +15,7 @@ import (
  "os"
  "os/signal"
  "strings"
+ "sort"
  "sync"
  "syscall"
  "time"
@@ -35,6 +36,7 @@ type Bridge struct {
  client *whatsmeow.Client
  runtime, admin, csrf string
  allow map[string]bool
+ sendEnabled bool
  mu sync.RWMutex
  qr string
  qrExpires time.Time
@@ -116,7 +118,7 @@ func main(){
  container,e:=sqlstore.New(ctx,"sqlite3","file:"+dir+"/session.sqlite?_foreign_keys=on",nil);require(e);defer container.Close()
  device,e:=container.GetFirstDevice(ctx);require(e)
  client:=whatsmeow.NewClient(device,nil);defer client.Disconnect()
- b:=&Bridge{db:db,client:client,runtime:runtime,admin:admin,csrf:randomToken(),allow:allow}
+ b:=&Bridge{db:db,client:client,runtime:runtime,admin:admin,csrf:randomToken(),allow:allow,sendEnabled:os.Getenv("WA_ENABLE_SEND")=="true"}
  client.AddEventHandler(b.event)
  if client.Store.ID==nil{
   ch,e:=client.GetQRChannel(ctx);require(e)
@@ -142,22 +144,29 @@ func (b *Bridge) action(w http.ResponseWriter,r *http.Request){
  d:=json.NewDecoder(http.MaxBytesReader(w,r.Body,16384));d.DisallowUnknownFields()
  if d.Decode(&in)!=nil{fail(w,400,"invalid input");return}
  name:=strings.TrimPrefix(r.URL.Path,"/v1/actions/")
- if name=="get_status"{reply(w,200,map[string]any{"connected":b.client.IsConnected()&&b.client.IsLoggedIn(),"allowedChats":len(b.allow),"historyComplete":false});return}
+ if name=="get_status"{reply(w,200,map[string]any{"connected":b.client.IsConnected()&&b.client.IsLoggedIn(),"allowedChats":len(b.allow),"sendEnabled":b.sendEnabled,"historyComplete":false});return}
  if in.ChatID!=""&&!b.permitted(in.ChatID){fail(w,403,"chat not allowed");return}
  if in.Limit<1{in.Limit=30};if in.Limit>100{in.Limit=100}
  switch name{
  case "list_chats","search_contacts":
   rows:=[]map[string]string{}
-  for jid:=range b.allow{
+  ids:=make([]string,0,len(b.allow))
+  for jid:=range b.allow{ids=append(ids,jid)}
+  sort.Strings(ids)
+  next:=""
+  for _,jid:=range ids{
+   if jid<=in.Cursor{continue}
    if name=="search_contacts"&&!strings.Contains(strings.ToLower(jid),strings.ToLower(in.Query)){continue}
+   if len(rows)==in.Limit{next=rows[len(rows)-1]["chatId"];break}
    rows=append(rows,map[string]string{"chatId":jid})
   }
-  if len(rows)>in.Limit{rows=rows[:in.Limit]}
-  reply(w,200,map[string]any{"chats":rows,"namesAvailable":false})
+  reply(w,200,map[string]any{"chats":rows,"nextCursor":next,"namesAvailable":false})
  case "get_recent_messages","get_messages","search_messages","get_message_context":
   b.read(w,name,in)
  case "get_media": b.media(w,r,in)
- case "send_message": b.requestSend(w,in)
+ case "send_message":
+  if !b.sendEnabled {fail(w,403,"sending disabled by owner");return}
+  b.requestSend(w,in)
  default:fail(w,404,"unknown action")
  }
 }
