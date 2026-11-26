@@ -16,9 +16,13 @@ Use Go 1.27 or the Dockerfile. Build from this directory. Generate two different
 
 Open the protected /owner page in a computer browser using HTTP Basic username owner and the separate owner token. Scan the QR in WhatsApp > Linked devices > Link a device. If all QR codes expire, restart the test process to start a new pairing cycle. A persisted session is reused after restart. Unlink from the phone to revoke the session.
 
+## Docker Compose on an encrypted Linux host
+
+Copy `.env.example` to `.env` (chmod 600), configure secrets and an existing encrypted data directory, and run `./start.sh`. The script requires a Linux block device backed by dm-crypt, refuses an unencrypted or unverified mount, and starts the bridge on loopback only. Configure the protected HTTPS tunnel separately; no public port is opened by Compose. The host administrator must confirm the volume and backup policy. For a secondary-account development test only, use the manual instructions above.
+
 ## Connector
 
-Build the Open Connector catalog and typecheck on the feature branch. In a staging instance, open WhatsApp Personal, enter the HTTPS bridge origin and click Link WhatsApp (QR). The protected owner page opens in a separate browser tab; authenticate there using the separate owner credential, scan the code, then return and save the runtime token. Validation requires an active linked session. Create narrowly scoped runtime tokens, explicitly allow only the read actions needed and restrict the connection. Do not use bootstrap or unrestricted tokens. Do not grant send_message until approved.
+Build the Open Connector catalog and typecheck on the feature branch. In a staging instance, open WhatsApp Personal, enter the HTTPS bridge origin and click Link WhatsApp (QR). The protected owner page opens in a separate browser tab; authenticate there using the separate owner credential, scan the code, then return and save the runtime token. Validation requires an active linked session. Create narrowly scoped runtime tokens, explicitly allow only the read actions needed and restrict the connection. Do not use bootstrap or unrestricted tokens. Sending is disabled by default at the bridge. Only after read-only acceptance tests pass, explicitly set WA_ENABLE_SEND=true and grant send_message to selected agents. The owner must still approve every outgoing message.
 
 The nine actions include status, list chats, search contacts (JID only in preview), recent/history search, context, media and owner-approved text send. Media is bounded to 4 MiB decoded and the provider transfers it into the gateway's existing transit-file store instead of returning base64 to the model. Verify download authorization and TTL before production. Sending creates an expiring, exact-content approval request; the owner approves or rejects it at /owner. A duplicate request ID with a different payload is rejected; ambiguous sends must never be retried automatically. No send_media yet.
 
