@@ -20,7 +20,15 @@ interface Context {
 function origin(value: unknown): string {
   try {
     const url = new URL(String(value));
-    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.port) {
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash ||
+      url.port
+    ) {
       throw new Error();
     }
     return url.origin;
@@ -61,8 +69,13 @@ async function media(ctx: Context, input: Record<string, unknown>): Promise<unkn
     throw new ProviderRequestError(502, "Invalid bridge media response");
   }
   const { dataBase64, mimeType } = result;
-  if (typeof dataBase64 !== "string" || typeof mimeType !== "string" ||
-      !/^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|wav|aac)|application\/pdf)$/.test(mimeType.split(";")[0]!.trim())) {
+  if (
+    typeof dataBase64 !== "string" ||
+    typeof mimeType !== "string" ||
+    !/^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|wav|aac)|application\/pdf)$/.test(
+      mimeType.split(";")[0]!.trim(),
+    )
+  ) {
     throw new ProviderRequestError(415, "Unsupported media type");
   }
   const bytes = Buffer.from(dataBase64, "base64");
@@ -76,10 +89,13 @@ async function media(ctx: Context, input: Record<string, unknown>): Promise<unkn
   return { ...stored, mimeType: type, source: "whatsapp_personal" };
 }
 
-const handlers = Object.fromEntries(actions.map((a) => [
-  a.name,
-  (input: Record<string, unknown>, ctx: Context) => a.name === "get_media" ? media(ctx, input) : request(ctx, a.name, input),
-]));
+const handlers = Object.fromEntries(
+  actions.map((a) => [
+    a.name,
+    (input: Record<string, unknown>, ctx: Context) =>
+      a.name === "get_media" ? media(ctx, input) : request(ctx, a.name, input),
+  ]),
+);
 
 export const executors: ProviderExecutors = defineProviderExecutors<Context>({
   service,
