@@ -106,25 +106,25 @@ export class ActionRunner {
             policy = connectionActionPolicy;
             result = { ok: false, error: { code: policy.code, message: policy.message } };
           } else {
-          connection = await this.options.connections.resolveForExecution(action.service, input.connectionName);
-          input.signal?.throwIfAborted();
-          const executor = action.execution.locallyExecutable
-            ? await this.options.providerLoader.loadActionExecutor(
-                action.service,
-                action.id,
-                this.options.catalog.providers.find((provider) => provider.service === action.service)?.displayName,
-              )
-            : undefined;
-          input.signal?.throwIfAborted();
-          result = await executeProviderAction(
-            action,
-            executor,
-            input.input,
-            this.createExecutionContext(connection.getCredential, input.signal),
-          );
-          if (input.signal?.aborted) {
-            result = cancelledExecutionResult();
-          }
+            connection = await this.options.connections.resolveForExecution(action.service, input.connectionName);
+            input.signal?.throwIfAborted();
+            const executor = action.execution.locallyExecutable
+              ? await this.options.providerLoader.loadActionExecutor(
+                  action.service,
+                  action.id,
+                  this.options.catalog.providers.find((provider) => provider.service === action.service)?.displayName,
+                )
+              : undefined;
+            input.signal?.throwIfAborted();
+            result = await executeProviderAction(
+              action,
+              executor,
+              input.input,
+              this.createExecutionContext(connection.getCredential, input.signal),
+            );
+            if (input.signal?.aborted) {
+              result = cancelledExecutionResult();
+            }
           }
         }
       } catch (error) {
@@ -166,9 +166,14 @@ export class ActionRunner {
       runtimeTokenName: input.runtimeTokenName,
       request: input.request,
       policy,
-      inputSummary: action.service === "whatsapp_personal" ? "[private WhatsApp payload]" : this.summarizeAuditValue(input.input, logContext),
+      inputSummary:
+        action.service === "whatsapp_personal"
+          ? "[private WhatsApp payload]"
+          : this.summarizeAuditValue(input.input, logContext),
       outputSummary: result.ok
-        ? action.service === "whatsapp_personal" ? "[private WhatsApp payload]" : this.summarizeAuditValue(result.output, logContext)
+        ? action.service === "whatsapp_personal"
+          ? "[private WhatsApp payload]"
+          : this.summarizeAuditValue(result.output, logContext)
         : undefined,
       ...auditError,
     };
