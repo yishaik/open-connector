@@ -8,7 +8,7 @@ One private linked-device bridge, one Open Connector provider. Agents use the ex
 - Do not publish the bridge until its tests pass and the security review is complete. The current example stores SQLite files on disk, **not encrypted by SQLite**. Mount a dedicated encrypted volume and restrict backups, permissions and access before using real messages. Do not copy session databases to GitHub.
 - Use a dedicated HTTPS tunnel with origin access restricted. Protect the owner routes with Cloudflare Access or equivalent in addition to owner credentials. Only the connector should have the runtime token. Never grant the owner/admin token to an agent.
 - By default no chats are allowed. Configure exact JIDs in WA_ALLOWED_CHATS before pairing; no wildcard or public discovery is enabled. LID/phone alias resolution and contact display names are not implemented in this preview.
-- Confirm Open Connector run logs and transit handling redact sensitive inputs/outputs. No real personal data until this is verified.
+- The shared ActionRunner now omits WhatsApp input/output summaries entirely; verify all other runtime logging, idempotency storage and transit handling before production. No real personal data until this is verified.
 
 ## Run on a test host
 
@@ -18,11 +18,11 @@ Open the protected /owner page in a computer browser using HTTP Basic username o
 
 ## Connector
 
-Build the Open Connector catalog and typecheck on the feature branch. In a staging instance, configure WhatsApp Personal with the HTTPS bridge origin and the runtime token. Create narrowly scoped runtime tokens, explicitly allow only the read actions needed and restrict the connection. Do not use bootstrap or unrestricted tokens. Do not grant send_message until approved.
+Build the Open Connector catalog and typecheck on the feature branch. In a staging instance, open WhatsApp Personal, enter the HTTPS bridge origin and click Link WhatsApp (QR). The protected owner page opens in a separate browser tab; authenticate there using the separate owner credential, scan the code, then return and save the runtime token. Validation requires an active linked session. Create narrowly scoped runtime tokens, explicitly allow only the read actions needed and restrict the connection. Do not use bootstrap or unrestricted tokens. Do not grant send_message until approved.
 
-The nine actions include status, list chats, search contacts (JID only in preview), recent/history search, context, media and owner-approved text send. Media is bounded base64 (4 MiB decoded); transit-file integration is still required for reliable vision workflows. Sending creates an expiring, exact-content approval request; the owner approves or rejects it at /owner. A duplicate request ID with a different payload is rejected; ambiguous sends must never be retried automatically. No send_media yet.
+The nine actions include status, list chats, search contacts (JID only in preview), recent/history search, context, media and owner-approved text send. Media is bounded to 4 MiB decoded and the provider transfers it into the gateway's existing transit-file store instead of returning base64 to the model. Verify download authorization and TTL before production. Sending creates an expiring, exact-content approval request; the owner approves or rejects it at /owner. A duplicate request ID with a different payload is rejected; ambiguous sends must never be retried automatically. No send_media yet.
 
-The current owner QR and approval page is a separate protected bridge route. Integrating it inside the Open Connector console is a remaining task; do not expose QR or approval as an MCP action.
+The console links to the separate protected owner QR and approval page. This deliberately avoids passing owner credentials or raw pairing secrets through the runtime. Embedded same-origin pairing remains a future improvement; do not expose QR or approval as an MCP action.
 
 ## Acceptance checklist
 
@@ -33,4 +33,4 @@ The current owner QR and approval page is a separate protected bridge route. Int
 - Verify no message content or media appears in gateway logs; verify volume encryption and backup policy.
 - Confirm text send requires exact independent owner approval; no duplicate send on retry.
 - Verify Open Connector staging /mcp discovers and executes actions with per-agent grants.
-- Add native QR flow, transit media, names and pagination improvements before production.
+- Verify the QR launch flow and transit media end-to-end; add contact names and pagination improvements before production.
