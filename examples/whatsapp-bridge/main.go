@@ -8,7 +8,6 @@ import (
  "encoding/base64"
  "encoding/hex"
  "encoding/json"
- "fmt"
  "html/template"
  "log"
  "net/http"
@@ -103,6 +102,7 @@ func (b *Bridge) event(evt any) {
  }
 }
 func main(){
+ syscall.Umask(0077)
  runtime,admin:=os.Getenv("WA_RUNTIME_TOKEN"),os.Getenv("WA_ADMIN_TOKEN")
  if len(runtime)<32||len(admin)<32||same(runtime,admin){log.Fatal("set distinct strong runtime and admin tokens")}
  allow:=map[string]bool{}
@@ -260,6 +260,7 @@ func(b *Bridge) approve(w http.ResponseWriter,r *http.Request){
  if b.db.QueryRow("SELECT chat,body,created FROM requests WHERE id=? AND state='pending'",id).Scan(&chat,&body,&created)!=nil||time.Now().Unix()-created>600||!b.permitted(chat){fail(w,409,"request unavailable");return}
  if decision=="reject"{_,_=b.db.Exec("UPDATE requests SET state='rejected' WHERE id=? AND state='pending'",id);http.Redirect(w,r,"/owner",303);return}
  if decision!="approve"{fail(w,400,"invalid decision");return}
+ if !b.sendEnabled{fail(w,403,"sending disabled by owner");return}
  jid,e:=types.ParseJID(chat);if e!=nil||!b.client.IsLoggedIn(){fail(w,409,"not connected or invalid chat");return}
  res,e:=b.db.Exec("UPDATE requests SET state='sending' WHERE id=? AND state='pending'",id);if e!=nil{fail(w,500,"approval failed");return};n,_:=res.RowsAffected();if n!=1{fail(w,409,"already handled");return}
  _,e=b.client.SendMessage(r.Context(),jid,&waE2E.Message{Conversation:proto.String(body)})
@@ -269,4 +270,3 @@ func(b *Bridge) approve(w http.ResponseWriter,r *http.Request){
  if e!=nil{fail(w,502,"delivery uncertain; inspect WhatsApp before retrying");return}
  http.Redirect(w,r,"/owner",303)
 }
-var _ = fmt.Sprintf
