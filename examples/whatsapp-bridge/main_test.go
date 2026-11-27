@@ -47,3 +47,27 @@ func TestDisconnectedSessionCannotReadArchive(t *testing.T) {
   if w.Code!=http.StatusConflict{t.Fatalf("%s: %d",name,w.Code)}
  }
 }
+
+func TestOwnerPairingProtected(t *testing.T) {
+ b:=&Bridge{runtime:strings.Repeat("r",32),admin:strings.Repeat("a",32),csrf:"test-csrf",allow:map[string]bool{}}
+ for _,tc:=range []struct{auth,body string;want int}{
+  {"","operation=generate&csrf=test-csrf",401},
+  {"runtime","operation=generate&csrf=test-csrf",401},
+  {"owner","operation=generate&csrf=wrong",403},
+  {"owner","operation=generate&csrf=test-csrf",303},
+ }{
+  r:=httptest.NewRequest("POST","/owner",strings.NewReader(tc.body));r.Header.Set("Content-Type","application/x-www-form-urlencoded")
+  if tc.auth=="owner"{r.SetBasicAuth("owner",b.admin)}else if tc.auth=="runtime"{r.Header.Set("Authorization","Bearer "+b.runtime)}
+  w:=httptest.NewRecorder();b.owner(w,r);if w.Code!=tc.want{t.Fatalf("%s: got %d want %d",tc.auth,w.Code,tc.want)}
+ }
+}
+func TestOwnerPageAndStatus(t *testing.T) {
+ b:=&Bridge{admin:strings.Repeat("a",32),csrf:"test-csrf",pairState:"ready"}
+ for _,path:=range []string{"/owner","/owner?format=status"}{
+  r:=httptest.NewRequest("GET",path,nil);r.SetBasicAuth("owner",b.admin)
+  w:=httptest.NewRecorder();b.owner(w,r);if w.Code!=200{t.Fatal(w.Code)}
+  if path=="/owner"{
+   if !strings.Contains(w.Body.String(),"Generate QR")||!strings.Contains(w.Body.String(),"nonce=")||!strings.Contains(w.Header().Get("Content-Security-Policy"),"script-src 'nonce-"){t.Fatal("owner controls missing")}
+  }else if !strings.Contains(w.Body.String(),"\"status\":\"Disconnected\""){t.Fatal("missing status")}
+ }
+}

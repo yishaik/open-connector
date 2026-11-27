@@ -39,6 +39,11 @@ type Bridge struct {
  mu sync.RWMutex
  qr string
  qrExpires time.Time
+ ctx context.Context
+ pairing bool
+ paired bool
+ pairState string
+ retryAfter time.Time
 }
 type Input struct {
  ChatID string `json:"chatId"`
@@ -118,13 +123,11 @@ func main(){
  container,e:=sqlstore.New(ctx,"sqlite3","file:"+dir+"/session.sqlite?_foreign_keys=on",nil);require(e);defer container.Close()
  device,e:=container.GetFirstDevice(ctx);require(e)
  client:=whatsmeow.NewClient(device,nil);defer client.Disconnect()
- b:=&Bridge{db:db,client:client,runtime:runtime,admin:admin,csrf:randomToken(),allow:allow,sendEnabled:os.Getenv("WA_ENABLE_SEND")=="true"}
+ b:=&Bridge{db:db,client:client,runtime:runtime,admin:admin,csrf:randomToken(),allow:allow,sendEnabled:os.Getenv("WA_ENABLE_SEND")=="true",ctx:ctx,paired:device.ID!=nil,pairState:"ready"}
  client.AddEventHandler(b.event)
- if client.Store.ID==nil{
-  ch,e:=client.GetQRChannel(ctx);require(e)
-  go func(){for item:=range ch{b.mu.Lock();b.qr="";if item.Event=="code"{b.qr=item.Code;b.qrExpires=time.Now().Add(item.Timeout)};b.mu.Unlock()}}()
+ if b.paired {
+  if e=client.Connect();e!=nil{log.Print("linked WhatsApp connection unavailable")}
  }
- require(client.Connect())
  mux:=http.NewServeMux()
  mux.HandleFunc("/v1/actions/",b.action)
  mux.HandleFunc("/owner",b.owner)
@@ -237,16 +240,118 @@ func(b *Bridge) ownerAuth(w http.ResponseWriter,r *http.Request)bool{
  if !ok||user!="owner"||!same(p,b.admin){w.Header().Set("WWW-Authenticate",`Basic realm="WhatsApp owner"`);fail(w,401,"owner authorization required");return false}
  return true
 }
-var page=template.Must(template.New("owner").Parse(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp connection</title></head><body><h1>WhatsApp Personal</h1><p>{{.Status}}</p>{{if .QR}}<img src="/owner/qr" alt="Scan WhatsApp linked-device QR"><p>Open WhatsApp → Linked devices → Link a device. Refresh if expired.</p>{{end}}<h2>Pending send requests</h2>{{range .Requests}}<form method="post" action="/owner/approve"><p>To: {{.Chat}}<br>{{.Text}}</p><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button name="decision" value="approve">Approve exact message</button><button name="decision" value="reject">Reject</button></form>{{else}}<p>No pending requests.</p>{{end}}</body></html>`))
+// beginPair starts a single owner-initiated QR window. Never interrupt an
+// existing linked session or an ongoing pairing attempt.
+func(b *Bridge) beginPair() {
+ b.mu.Lock()
+ if b.client==nil||b.paired||b.pairing||time.Now().Before(b.retryAfter)||b.client.IsConnected()||b.client.IsLoggedIn(){
+  b.mu.Unlock();return
+ }
+ b.pairing=true;b.pairState="waiting";b.qr="";b.qrExpires=time.Time{}
+ b.mu.Unlock()
+ go b.runPair()
+}
+func(b *Bridge) runPair(){
+ ctx,cancel:=context.WithCancel(b.ctx);defer cancel()
+ ch,e:=b.client.GetQRChannel(ctx)
+ if e!=nil{
+  b.mu.Lock();b.pairing=false;b.pairState="unavailable";b.retryAfter=time.Now().Add(5*time.Second);b.mu.Unlock()
+  return
+ }
+ if e=b.client.Connect();e!=nil{
+  // A failed connect may leave the library's QR handler registered. Fail
+  // closed until an explicit service restart rather than overlap sessions.
+  b.mu.Lock();b.pairState="restart-required";b.qr="";b.qrExpires=time.Time{};b.mu.Unlock()
+  log.Print("pairing connect failed; operator restart required")
+  return
+ }
+ for {
+  select {
+  case <-ctx.Done(): return
+  case item,ok:=<-ch:
+   b.mu.Lock()
+   if !ok{
+    b.pairing=false;b.qr="";b.qrExpires=time.Time{}
+    if !b.paired && b.pairState=="waiting"{b.pairState="expired"}
+    b.retryAfter=time.Now().Add(5*time.Second)
+    b.mu.Unlock();return
+   }
+   switch item.Event {
+   case "code":
+    b.qr=item.Code;b.qrExpires=time.Now().Add(item.Timeout);b.pairState="waiting"
+   case "success":
+    b.paired=true;b.qr="";b.qrExpires=time.Time{};b.pairState="paired"
+   case "timeout":
+    b.qr="";b.qrExpires=time.Time{};b.pairState="expired"
+   default:
+    b.qr="";b.qrExpires=time.Time{};b.pairState="unavailable"
+   }
+   b.mu.Unlock()
+  }
+ }
+}
+type OwnerState struct {
+ Status string `json:"status"`
+ State string `json:"state"`
+ QR bool `json:"qr"`
+ Pairing bool `json:"pairing"`
+ CanGenerate bool `json:"canGenerate"`
+ Expires int64 `json:"expires"`
+}
+func(b *Bridge) ownerState() OwnerState {
+ b.mu.RLock();defer b.mu.RUnlock()
+ state:=OwnerState{Status:"Disconnected",State:b.pairState,Pairing:b.pairing}
+ if b.client!=nil&&b.client.IsConnected()&&b.client.IsLoggedIn(){state.Status="Connected";return state}
+ if b.paired{state.Status="Linked · offline";return state}
+ state.QR=b.qr!=""&&time.Now().Before(b.qrExpires)
+ if state.QR{state.Expires=b.qrExpires.UnixMilli()}
+ state.CanGenerate=b.client!=nil&&!b.pairing&&!b.client.IsConnected()&&!time.Now().Before(b.retryAfter)
+ return state
+}
+var page=template.Must(template.New("owner").Parse(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>WhatsApp Personal</title>
+<style nonce="{{.Nonce}}">
+:root{font:16px system-ui,sans-serif;color-scheme:light dark;--green:#13875b}*{box-sizing:border-box}body{margin:0;background:Canvas;color:CanvasText}main{max-width:650px;margin:0 auto;padding:24px 16px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}h1{font-size:1.45rem;margin:0}h2{font-size:1.15rem;margin:0 0 14px}p{line-height:1.5;margin:8px 0}small{opacity:.8}.panel{border:1px solid GrayText;border-radius:16px;padding:20px;margin:0 0 16px}.pill{font-size:.8rem;border:1px solid GrayText;border-radius:20px;padding:6px 10px;white-space:nowrap}button{background:var(--green);color:white;border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:600;cursor:pointer}button.secondary{background:transparent;border:1px solid GrayText;color:CanvasText}button:disabled{opacity:.5;cursor:not-allowed}.qr{display:block;width:min(100%,340px);height:auto;margin:20px auto;background:white;border:8px solid white;border-radius:12px}.center{text-align:center}.request{border-top:1px solid GrayText;padding:14px 0;overflow-wrap:anywhere}.buttons{display:flex;gap:8px;flex-wrap:wrap}a{color:LinkText}
+</style></head><body><main>
+<header><h1>WhatsApp Personal</h1><span class="pill" id="status">{{.View.Status}}</span></header>
+<section class="panel center" id="pairing" data-expires="{{.View.Expires}}" data-state="{{.View.State}}" data-status="{{.View.Status}}" data-pairing="{{.View.Pairing}}" data-can-generate="{{.View.CanGenerate}}">
+<h2>Link a device</h2>
+{{if eq .View.Status "Connected"}}<p>Your WhatsApp device is connected.</p>
+{{else if eq .View.Status "Linked · offline"}}<p>Your account is already linked. Waiting for its connection. Existing session is preserved.</p>
+{{else if .View.QR}}<img class="qr" src="/owner/qr?t={{.View.Expires}}" alt="WhatsApp linked-device QR"><p id="countdown" aria-live="polite">Refreshing code automatically…</p><p>Open WhatsApp on your phone → Linked devices → Link a device. Scan this code from another screen.</p>
+{{else if eq .View.State "restart-required"}}<p>Pairing could not start. Contact the operator to restart the bridge.</p>
+{{else if .View.Pairing}}<p>Requesting a QR code…</p>
+{{else}}<p>Generate a new QR code to start pairing. The code expires automatically.</p>
+<form method="post" action="/owner"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="operation" value="generate"><button {{if not .View.CanGenerate}}disabled{{end}}>Generate QR</button></form>{{end}}
+<p><small>Only link an approved test account until security validation is complete.</small></p><p><a href="/owner">Refresh status</a></p>
+</section>
+<section class="panel"><h2>Pending send requests</h2>{{range .Requests}}<form class="request" method="post" action="/owner/approve"><p>To: {{.Chat}}</p><p>{{.Text}}</p><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><div class="buttons"><button name="decision" value="approve">Approve exact message</button><button class="secondary" name="decision" value="reject">Reject</button></div></form>{{else}}<p>No pending requests.</p>{{end}}</section>
+<script nonce="{{.Nonce}}">
+const p=document.getElementById("pairing"), d=p.dataset, label=document.getElementById("countdown");
+function tick(){if(label){const left=Math.max(0,Math.ceil((Number(d.expires)-Date.now())/1000));label.textContent=left?"Code refreshes in "+left+"s":"Refreshing code…";}}
+tick();setInterval(tick,1000);
+async function poll(){try{const r=await fetch("/owner?format=status",{credentials:"same-origin",cache:"no-store"});if(r.ok){const s=await r.json();if(s.status!==d.status||s.state!==d.state||String(s.pairing)!==d.pairing||String(s.canGenerate)!==d.canGenerate||String(s.expires)!==d.expires){location.reload();return;}}}catch{}setTimeout(poll,2500);}
+setTimeout(poll,2500);
+</script></main></body></html>`))
 type Pending struct{ ID,Chat,Text string }
 func(b *Bridge) owner(w http.ResponseWriter,r *http.Request){
- if !b.ownerAuth(w,r){return};if r.Method!="GET"{fail(w,405,"GET required");return}
- b.mu.RLock();hasQR:=b.qr!=""&&time.Now().Before(b.qrExpires);b.mu.RUnlock()
- status:="Disconnected";if b.client.IsConnected()&&b.client.IsLoggedIn(){status="Connected"}
+ if !b.ownerAuth(w,r){return}
+ if r.Method=="POST"{
+  r.Body=http.MaxBytesReader(w,r.Body,4096)
+  if r.ParseForm()!=nil||!same(r.Form.Get("csrf"),b.csrf)||r.Form.Get("operation")!="generate"{fail(w,403,"invalid pairing request");return}
+  b.beginPair();http.Redirect(w,r,"/owner",303);return
+ }
+ if r.Method!="GET"{fail(w,405,"GET or POST required");return}
+ view:=b.ownerState()
+ if r.URL.Query().Get("format")=="status"{reply(w,200,view);return}
  pending:=[]Pending{}
+ if b.db!=nil{
  rows,e:=b.db.Query("SELECT id,chat,body FROM requests WHERE state='pending' AND created>=? ORDER BY created LIMIT 30",time.Now().Unix()-600)
  if e==nil{defer rows.Close();for rows.Next(){var p Pending;if rows.Scan(&p.ID,&p.Chat,&p.Text)==nil&&b.permitted(p.Chat){pending=append(pending,p)}}}
- w.Header().Set("Content-Type","text/html; charset=utf-8");_ = page.Execute(w,map[string]any{"Status":status,"QR":hasQR,"CSRF":b.csrf,"Requests":pending})
+ }
+ nonce:=randomToken()
+ w.Header().Set("Content-Security-Policy","default-src 'none'; img-src 'self'; connect-src 'self'; script-src 'nonce-"+nonce+"'; style-src 'nonce-"+nonce+"'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+ w.Header().Set("Content-Type","text/html; charset=utf-8");_ = page.Execute(w,map[string]any{"View":view,"Nonce":nonce,"CSRF":b.csrf,"Requests":pending})
 }
 func(b *Bridge) qrImage(w http.ResponseWriter,r *http.Request){
  if !b.ownerAuth(w,r){return};if r.Method!="GET"{fail(w,405,"GET required");return}
