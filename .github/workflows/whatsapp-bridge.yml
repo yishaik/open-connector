@@ -2,12 +2,12 @@ name: WhatsApp connector checks
 on:
   pull_request:
     paths:
-      - 'src/providers/whatsapp_personal/**'
-      - 'examples/whatsapp-bridge/**'
-      - 'web/src/providers-page.tsx'
-      - 'web/provider-icons-plugin.ts'
-      - 'src/server/actions/action-runner.ts'
-      - '.github/workflows/whatsapp-bridge.yml'
+      - "src/providers/whatsapp_personal/**"
+      - "examples/whatsapp-bridge/**"
+      - "web/src/providers-page.tsx"
+      - "web/provider-icons-plugin.ts"
+      - "src/server/actions/action-runner.ts"
+      - ".github/workflows/whatsapp-bridge.yml"
 permissions:
   contents: read
 concurrency:
@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: "24"
       - run: npm ci
       - name: Report exact lint diagnostics
         if: always()

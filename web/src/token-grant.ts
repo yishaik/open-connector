@@ -3,7 +3,6 @@ import type { ActionDefinition, ConnectionRecord, PolicyRules, ProviderDefinitio
 const WRITE_NAME =
   /(^|_)(send|create|update|delete|post|upload|insert|compose|draft|patch|put|remove|set|rate|add|write|reply|forward|trash|modify|replace)(_|$)/i;
 
-
 export type TokenGrantKind = "read" | "write";
 
 export interface TokenGrantAction {
@@ -141,7 +140,8 @@ export function tokenGrantDraftFromPolicy(
     if (!enabled) {
       continue;
     }
-    const unscopedAll = allActions || unscoped.includes("*") || unscoped.includes(wildcard) || unscoped.includes(service.service);
+    const unscopedAll =
+      allActions || unscoped.includes("*") || unscoped.includes(wildcard) || unscoped.includes(service.service);
     const unscopedIds = unscopedAll
       ? service.actions.map((action) => action.id)
       : unscoped.filter((rule) => rule.includes(".") && !rule.endsWith(".*"));
@@ -152,20 +152,31 @@ export function tokenGrantDraftFromPolicy(
       if (!grantedByConnectionList && accountScoped.length === 0) {
         continue;
       }
-      const scopedAll = accountScoped.some((rule) => rule.actionPattern === "*" || rule.actionPattern === wildcard || rule.actionPattern === service.service);
+      const scopedAll = accountScoped.some(
+        (rule) =>
+          rule.actionPattern === "*" || rule.actionPattern === wildcard || rule.actionPattern === service.service,
+      );
       let actionIds = scopedAll
         ? service.actions.map((action) => action.id)
         : [
             ...unscopedIds,
             ...accountScoped.flatMap((rule) =>
               rule.actionPattern.endsWith(".*")
-                ? service.actions.filter((action) => action.id.startsWith(rule.actionPattern.slice(0, -1))).map((action) => action.id)
+                ? service.actions
+                    .filter((action) => action.id.startsWith(rule.actionPattern.slice(0, -1)))
+                    .map((action) => action.id)
                 : [rule.actionPattern],
             ),
           ];
       actionIds = [...new Set(actionIds)].filter((id) => service.actions.some((action) => action.id === id));
       actionIds = actionIds.filter((id) => !blocked.some((rule) => ruleMatches(rule, id)));
-      if (actionIds.length === 0 && accountScoped.length === 0 && !unscopedAll && unscopedIds.length === 0 && !proxies.has(service.service)) {
+      if (
+        actionIds.length === 0 &&
+        accountScoped.length === 0 &&
+        !unscopedAll &&
+        unscopedIds.length === 0 &&
+        !proxies.has(service.service)
+      ) {
         continue;
       }
       accounts[account.id] = {
@@ -210,7 +221,9 @@ export function tokenPolicyFromGrantDraft(draft: TokenGrantDraft, catalog: Token
       continue;
     }
     const actionSets = enabledAccounts.map((account) => new Set(state.accounts[account.id]?.actionIds ?? []));
-    const sameActions = actionSets.every((ids) => ids.size === actionSets[0].size && [...ids].every((id) => actionSets[0].has(id)));
+    const sameActions = actionSets.every(
+      (ids) => ids.size === actionSets[0].size && [...ids].every((id) => actionSets[0].has(id)),
+    );
     if (sameActions) {
       const selected = actionSets[0];
       const allSelected = service.actions.length > 0 && service.actions.every((action) => selected.has(action.id));
@@ -312,13 +325,14 @@ export function toggleAction(
     enabled: true,
     proxy: false,
     accounts: Object.fromEntries(
-      service.accounts.map((account) => [
-        account.id,
-        { enabled: true, allActions: false, actionIds: [] as string[] },
-      ]),
+      service.accounts.map((account) => [account.id, { enabled: true, allActions: false, actionIds: [] as string[] }]),
     ),
   };
-  const targetIds = accountId ? [accountId] : Object.keys(current.accounts).length > 0 ? Object.keys(current.accounts) : service.accounts.map((account) => account.id);
+  const targetIds = accountId
+    ? [accountId]
+    : Object.keys(current.accounts).length > 0
+      ? Object.keys(current.accounts)
+      : service.accounts.map((account) => account.id);
   const accounts = { ...current.accounts };
   for (const id of targetIds) {
     const existing = accounts[id] ?? {
@@ -375,7 +389,12 @@ function parseScopedRule(rule: string): { actionPattern: string; connectionId?: 
 }
 
 function actionPatternMatchesService(actionPattern: string, service: string): boolean {
-  return actionPattern === "*" || actionPattern === service || actionPattern === `${service}.*` || actionPattern.startsWith(`${service}.`);
+  return (
+    actionPattern === "*" ||
+    actionPattern === service ||
+    actionPattern === `${service}.*` ||
+    actionPattern.startsWith(`${service}.`)
+  );
 }
 
 function ruleMatches(rule: string, actionId: string): boolean {
