@@ -280,7 +280,6 @@ export function RunsPage(props: RunsPageProps): ReactNode {
                                 : ""}
                             </div>
                           ) : null}
-
                         </TableCell>
                         <TableCell className="mono run-summary run-col-summary">
                           {compactJson(run.inputSummary)}
@@ -367,10 +366,7 @@ function RunSelect(props: {
   );
 }
 
-export function runTokenOptions(
-  tokens: RuntimeTokenSummary[],
-  runs: RunLog[],
-): Array<{ id: string; name: string }> {
+export function runTokenOptions(tokens: RuntimeTokenSummary[], runs: RunLog[]): Array<{ id: string; name: string }> {
   const names = new Map<string, string>();
   for (const token of tokens) {
     names.set(token.id, token.name);
