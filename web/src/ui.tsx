@@ -30,7 +30,7 @@ import {
   Sun,
   TerminalSquare,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from "react-router";
 import { AccessPage } from "./access-page";
 import { ActionsPage } from "./actions-page";
@@ -55,14 +55,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Toaster } from "@/components/ui/sonner";
 
 const navItems = [
-  { path: "/overview", labelKey: "nav.overview", icon: Home },
-  { path: "/providers", labelKey: "nav.providers", icon: Cable },
-  { path: "/oauth-apps", labelKey: "nav.oauthApps", icon: Fingerprint },
-  { path: "/oauth-clients", labelKey: "nav.oauthClients", icon: ShieldCheck },
-  { path: "/actions", labelKey: "nav.actions", icon: TerminalSquare },
-  { path: "/runs", labelKey: "nav.runs", icon: Activity },
-  { path: "/access", labelKey: "nav.access", icon: KeyRound },
-  { path: "/resources", labelKey: "nav.docs", icon: BookOpen },
+  { path: "/providers", labelKey: "nav.providers", group: "connect", icon: Cable },
+  { path: "/oauth-apps", labelKey: "nav.oauthApps", group: "connect", icon: Fingerprint },
+  { path: "/oauth-clients", labelKey: "nav.oauthClients", group: "connect", icon: ShieldCheck },
+  { path: "/actions", labelKey: "nav.actions", group: "use", icon: TerminalSquare },
+  { path: "/runs", labelKey: "nav.runs", group: "use", icon: Activity },
+  { path: "/access", labelKey: "nav.access", group: "access", icon: KeyRound },
+  { path: "/overview", labelKey: "nav.overview", group: "monitor", icon: Home },
+  { path: "/resources", labelKey: "nav.docs", group: "monitor", icon: BookOpen },
 ] as const;
 
 const oauthCompletionChannelName = "oomol-connect-oauth";
@@ -389,17 +389,17 @@ function AppShell(props: {
 
         <div className="sidebar-content">
           <nav className="sidebar-nav" aria-label={t("shell.primaryNav")}>
-            {navItems.map((item) => {
+            {navItems.map((item, index) => {
               const Icon = item.icon;
+              const startsGroup = index === 0 || navItems[index - 1].group !== item.group;
               return (
-                <NavLink
-                  key={item.path}
-                  className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")}
-                  to={item.path}
-                >
-                  <Icon size={16} />
-                  <span>{t(item.labelKey)}</span>
-                </NavLink>
+                <Fragment key={item.path}>
+                  {startsGroup ? <div className="nav-group-label">{t(`nav.groups.${item.group}`)}</div> : null}
+                  <NavLink className={({ isActive }) => (isActive ? "nav-item active" : "nav-item")} to={item.path}>
+                    <Icon size={16} />
+                    <span>{t(item.labelKey)}</span>
+                  </NavLink>
+                </Fragment>
               );
             })}
           </nav>

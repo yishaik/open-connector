@@ -34,14 +34,20 @@
   },
   "nav": {
     "overview": "概览",
-    "providers": "提供商",
+    "providers": "服务",
     "marketplace": "Marketplace",
     "oauthApps": "OAuth Apps",
     "oauthClients": "OAuth 客户端",
     "actions": "操作",
     "runs": "运行记录",
-    "access": "API Key",
-    "docs": "接入指南"
+    "access": "密钥与策略",
+    "docs": "接入指南",
+    "groups": {
+      "connect": "连接",
+      "use": "使用",
+      "access": "访问",
+      "monitor": "监控"
+    }
   },
   "shell": {
     "invalidUnlockToken": "请输入有效的管理员 token 来解锁控制台。",

@@ -34,14 +34,20 @@
   },
   "nav": {
     "overview": "總覽",
-    "providers": "服務提供者",
+    "providers": "服務",
     "marketplace": "Marketplace",
     "oauthApps": "OAuth Apps",
     "oauthClients": "OAuth 用戶端",
     "actions": "動作",
     "runs": "執行記錄",
-    "access": "API 金鑰",
-    "docs": "接入指南"
+    "access": "金鑰與政策",
+    "docs": "接入指南",
+    "groups": {
+      "connect": "連接",
+      "use": "使用",
+      "access": "存取",
+      "monitor": "監控"
+    }
   },
   "shell": {
     "invalidUnlockToken": "請輸入有效的管理員權杖以解鎖控制台。",

@@ -34,14 +34,20 @@
   },
   "nav": {
     "overview": "概要",
-    "providers": "プロバイダー",
+    "providers": "サービス",
     "marketplace": "Marketplace",
     "oauthApps": "OAuth Apps",
     "oauthClients": "OAuthクライアント",
     "actions": "アクション",
     "runs": "実行履歴",
-    "access": "API Key",
-    "docs": "接続ガイド"
+    "access": "キーとポリシー",
+    "docs": "接続ガイド",
+    "groups": {
+      "connect": "接続",
+      "use": "利用",
+      "access": "アクセス",
+      "monitor": "監視"
+    }
   },
   "shell": {
     "invalidUnlockToken": "有効な管理者 token を入力してコンソールをロック解除してください。",

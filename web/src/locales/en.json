@@ -34,14 +34,20 @@
   },
   "nav": {
     "overview": "Overview",
-    "providers": "Providers",
+    "providers": "Services",
     "marketplace": "Marketplace",
     "oauthApps": "OAuth Apps",
     "oauthClients": "OAuth Clients",
     "actions": "Actions",
     "runs": "Runs",
-    "access": "API Key",
-    "docs": "Connect clients"
+    "access": "Keys & policies",
+    "docs": "Connect clients",
+    "groups": {
+      "connect": "Connect",
+      "use": "Use",
+      "access": "Access",
+      "monitor": "Monitor"
+    }
   },
   "shell": {
     "invalidUnlockToken": "Enter a valid admin token to unlock the console.",

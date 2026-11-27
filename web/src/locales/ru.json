@@ -34,14 +34,20 @@
   },
   "nav": {
     "overview": "Обзор",
-    "providers": "Провайдеры",
+    "providers": "Сервисы",
     "marketplace": "Marketplace",
     "oauthApps": "OAuth Apps",
     "oauthClients": "OAuth-клиенты",
     "actions": "Действия",
     "runs": "Запуски",
-    "access": "API Key",
-    "docs": "Подключить клиентов"
+    "access": "Ключи и политики",
+    "docs": "Подключить клиентов",
+    "groups": {
+      "connect": "Подключение",
+      "use": "Использование",
+      "access": "Доступ",
+      "monitor": "Мониторинг"
+    }
   },
   "shell": {
     "invalidUnlockToken": "Введите действительный token администратора, чтобы разблокировать консоль.",

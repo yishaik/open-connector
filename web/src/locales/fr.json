@@ -34,14 +34,20 @@
   },
   "nav": {
     "overview": "Vue d’ensemble",
-    "providers": "Fournisseurs",
+    "providers": "Services",
     "marketplace": "Marketplace",
     "oauthApps": "Apps OAuth",
     "oauthClients": "Clients OAuth",
     "actions": "Actions",
     "runs": "Exécutions",
-    "access": "API Key",
-    "docs": "Connecter des clients"
+    "access": "Clés et politiques",
+    "docs": "Connecter des clients",
+    "groups": {
+      "connect": "Connexion",
+      "use": "Utilisation",
+      "access": "Accès",
+      "monitor": "Suivi"
+    }
   },
   "shell": {
     "invalidUnlockToken": "Saisissez un token administrateur valide pour déverrouiller la console.",
