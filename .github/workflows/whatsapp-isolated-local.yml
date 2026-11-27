@@ -71,8 +71,10 @@ jobs:
           curl -fsS -H "Authorization: Bearer $ADMIN" http://127.0.0.1:8787/api/providers > /tmp/providers.json
           node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync("/tmp/providers.json","utf8"));if(!Array.isArray(p)||p.length!==1||p[0].service!=="whatsapp_personal")throw Error("Unexpected catalog");console.log("WhatsApp-only catalog verified")'
           curl -fsS -H "Authorization: Bearer $RUNTIME" http://127.0.0.1:8787/mcp/tools >/tmp/tools.json
-          grep -q 'get_status' /tmp/tools.json
-          echo "Local MCP tool discovery verified. No WhatsApp credentials or real chat data used."
+          node --input-type=module -e 'import fs from "node:fs";const r=JSON.parse(fs.readFileSync("/tmp/tools.json","utf8"));for(const name of ["search_actions","get_action_guide","execute_action"]){if(!r.tools?.some(t=>t.name===name))throw Error("Missing MCP tool "+name)}'
+          curl -fsS -H "Authorization: Bearer $RUNTIME" http://127.0.0.1:8787/v1/actions/whatsapp_personal.get_status > /tmp/status-action.json
+          grep -q 'whatsapp_personal.get_status' /tmp/status-action.json
+          echo "Local MCP discovery and WhatsApp action metadata verified. No live account credentials used."
       - name: Publish smoke test status
         if: always()
         env:
