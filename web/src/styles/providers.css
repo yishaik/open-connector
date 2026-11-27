@@ -9,6 +9,13 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.provider-browser-toolbar > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .provider-browser-toolbar > button {
