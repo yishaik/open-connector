@@ -431,6 +431,9 @@
 }
 
 @media (max-width: 640px) {
+  .nav-group-label {
+    display: none;
+  }
   .sidebar {
     grid-template-columns: 1fr;
     gap: 12px;
