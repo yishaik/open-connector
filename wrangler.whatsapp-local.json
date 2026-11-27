@@ -1,7 +1,7 @@
 {
   "name": "open-connector-whatsapp-local-test",
   "main": "src/server/cloudflare.ts",
-  "compatibility_date": "2026-10-21",
+  "compatibility_date": "2026-07-02",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"
