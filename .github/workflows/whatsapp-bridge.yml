@@ -28,12 +28,12 @@ jobs:
         if: always()
         run: npx --no-install oxlint --format json .
         continue-on-error: true
-      - name: Show formatting patch for connector changes
+      - name: Report complete formatter patch
         if: always()
         run: |
-          npx --no-install oxfmt src/providers/whatsapp_personal web/provider-icons-plugin.ts web/src/providers-page.tsx src/server/actions/action-runner.ts web/src/access-page.tsx web/src/runs-page.tsx web/src/token-grant-editor.tsx
-          git diff -- src/providers/whatsapp_personal web/provider-icons-plugin.ts web/src/providers-page.tsx src/server/actions/action-runner.ts web/src/access-page.tsx web/src/runs-page.tsx web/src/token-grant-editor.tsx
-          git restore -- src/providers/whatsapp_personal web/provider-icons-plugin.ts web/src/providers-page.tsx src/server/actions/action-runner.ts web/src/access-page.tsx web/src/runs-page.tsx web/src/token-grant-editor.tsx
+          npx --no-install oxfmt .
+          git diff --no-color -- .
+          git restore -- .
       - run: npm run typecheck
       - run: npm run build:web
   bridge:
