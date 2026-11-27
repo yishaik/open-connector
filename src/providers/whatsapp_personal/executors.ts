@@ -51,7 +51,8 @@ function accessCredentials(values: Record<string, string>): Pick<Context, "cfAcc
 async function request(ctx: Context, name: string, input: Record<string, unknown>): Promise<unknown> {
   const res = await ctx.fetcher(new URL("/v1/actions/" + name, ctx.baseUrl), {
     method: "POST",
-    redirect: "error",
+    // Workers does not support redirect: "error"; manual plus !res.ok refuses every redirect.
+    redirect: "manual",
     headers: {
       authorization: "Bearer " + ctx.apiKey,
       "content-type": "application/json",
