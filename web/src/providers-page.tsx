@@ -1578,6 +1578,43 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
           onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
         />
       ))}
+      {props.provider.service === "whatsapp_personal" ? (
+        <div className="form-grid">
+          <Alert>
+            <AlertDescription>
+              Link your phone first: open the protected owner page, scan the QR from WhatsApp Linked devices, then save
+              the bridge runtime token here. Never enter the owner token into this form. The owner page also handles
+              approval of outgoing messages.
+            </AlertDescription>
+          </Alert>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => {
+              try {
+                const url = new URL(values.baseUrl || String(props.connection?.metadata.baseUrl ?? ""));
+                if (
+                  url.protocol !== "https:" ||
+                  url.username ||
+                  url.password ||
+                  url.port ||
+                  url.pathname !== "/" ||
+                  url.search ||
+                  url.hash
+                ) {
+                  throw new Error("Enter a bare HTTPS bridge origin.");
+                }
+                window.open(new URL("/owner", url).href, "_blank", "noopener,noreferrer");
+              } catch {
+                setStatus("Enter the HTTPS bridge origin before opening the pairing page.");
+              }
+            }}
+          >
+            <ExternalLink size={16} />
+            Link WhatsApp (QR)
+          </Button>
+        </div>
+      ) : null}
       {showActions ? (
         <div className="button-row">
           {needsOAuthClient ? (

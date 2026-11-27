@@ -1,0 +1,54 @@
+name: WhatsApp connector checks
+on:
+  pull_request:
+    paths:
+      - "src/providers/whatsapp_personal/**"
+      - "examples/whatsapp-bridge/**"
+      - "web/src/providers-page.tsx"
+      - "web/provider-icons-plugin.ts"
+      - "src/server/actions/action-runner.ts"
+      - ".github/workflows/whatsapp-bridge.yml"
+permissions:
+  contents: read
+concurrency:
+  group: whatsapp-connector-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - run: npm ci
+      - name: Report exact lint diagnostics
+        if: always()
+        run: npx --no-install oxlint --format json .
+        continue-on-error: true
+      - name: Report complete formatter patch
+        if: always()
+        run: |
+          npx --no-install oxfmt .
+          git diff --no-color -- .
+          git restore -- .
+      - run: npm run typecheck
+      - run: npm run build:web
+  bridge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/whatsapp-bridge
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: examples/whatsapp-bridge/go.mod
+          cache: false
+      - run: go mod tidy
+      - run: go test -race ./...
+      - run: go vet ./...

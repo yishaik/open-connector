@@ -419,7 +419,12 @@ describe("ActionPolicyService", () => {
   });
 
   it("allows the same action on one account and denies it on another", () => {
-    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const sendMessage: ActionDefinition = {
+      ...action,
+      id: "telegram.send_message",
+      service: "telegram",
+      name: "send_message",
+    };
     const getMe: ActionDefinition = { ...action, id: "telegram.get_me", service: "telegram", name: "get_me" };
     const snapshot = new ActionPolicyService().createSnapshot(undefined, {
       allowedActions: [
@@ -454,7 +459,12 @@ describe("ActionPolicyService", () => {
   });
 
   it("lets an unscoped read rule apply to every account while send stays on one account", () => {
-    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const sendMessage: ActionDefinition = {
+      ...action,
+      id: "telegram.send_message",
+      service: "telegram",
+      name: "send_message",
+    };
     const getMe: ActionDefinition = { ...action, id: "telegram.get_me", service: "telegram", name: "get_me" };
     const snapshot = new ActionPolicyService().createSnapshot(undefined, {
       allowedActions: ["telegram.get_me", `telegram.send_message@${workConnectionId}`],
@@ -472,7 +482,12 @@ describe("ActionPolicyService", () => {
   });
 
   it("treats a service wildcard scoped to one account as all actions on that account only", () => {
-    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const sendMessage: ActionDefinition = {
+      ...action,
+      id: "telegram.send_message",
+      service: "telegram",
+      name: "send_message",
+    };
     const snapshot = new ActionPolicyService().createSnapshot(undefined, {
       allowedActions: [`telegram.*@${workConnectionId}`],
       blockedActions: [],
@@ -488,7 +503,12 @@ describe("ActionPolicyService", () => {
   });
 
   it("still blocks a spend action even when a connection-scoped allow matches", () => {
-    const sendMessage: ActionDefinition = { ...action, id: "telegram.send_message", service: "telegram", name: "send_message" };
+    const sendMessage: ActionDefinition = {
+      ...action,
+      id: "telegram.send_message",
+      service: "telegram",
+      name: "send_message",
+    };
     const snapshot = new ActionPolicyService().createSnapshot(undefined, {
       allowedActions: [`telegram.send_message@${workConnectionId}`],
       blockedActions: ["telegram.send_message"],

@@ -39,7 +39,17 @@ export function providerIconsPlugin(options: ProviderIconsPluginOptions = {}): P
 }
 
 async function loadProviderIconsModule(): Promise<string> {
-  const response = await fetch(catalogUrl);
+  try {
+    return await fetchProviderIconsModule();
+  } catch {
+    // Icons are decorative; a catalog outage must not prevent deployment.
+    console.warn("OOMOL provider icons unavailable; using local provider icon fallbacks.");
+    return serializeProviderIcons({});
+  }
+}
+
+async function fetchProviderIconsModule(): Promise<string> {
+  const response = await fetch(catalogUrl, { signal: AbortSignal.timeout(10_000) });
   if (!response.ok) {
     throw new Error(`Could not load OOMOL provider icons: ${response.status} ${response.statusText}`);
   }
