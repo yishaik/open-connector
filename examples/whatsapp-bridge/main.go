@@ -146,6 +146,9 @@ func (b *Bridge) action(w http.ResponseWriter,r *http.Request){
  name:=strings.TrimPrefix(r.URL.Path,"/v1/actions/")
  if name=="get_status"{reply(w,200,map[string]any{"connected":b.client.IsConnected()&&b.client.IsLoggedIn(),"allowedChats":len(b.allow),"sendEnabled":b.sendEnabled,"historyComplete":false});return}
  if in.ChatID!=""&&!b.permitted(in.ChatID){fail(w,403,"chat not allowed");return}
+ if name=="send_message"&&!b.sendEnabled{fail(w,403,"sending disabled by owner");return}
+ // An unlinked or offline account must not expose archived data.
+ if b.client==nil||!b.client.IsConnected()||!b.client.IsLoggedIn(){fail(w,409,"WhatsApp session unavailable");return}
  if in.Limit<1{in.Limit=30};if in.Limit>100{in.Limit=100}
  switch name{
  case "list_chats","search_contacts":
@@ -261,7 +264,7 @@ func(b *Bridge) approve(w http.ResponseWriter,r *http.Request){
  if decision=="reject"{_,_=b.db.Exec("UPDATE requests SET state='rejected' WHERE id=? AND state='pending'",id);http.Redirect(w,r,"/owner",303);return}
  if decision!="approve"{fail(w,400,"invalid decision");return}
  if !b.sendEnabled{fail(w,403,"sending disabled by owner");return}
- jid,e:=types.ParseJID(chat);if e!=nil||!b.client.IsLoggedIn(){fail(w,409,"not connected or invalid chat");return}
+ jid,e:=types.ParseJID(chat);if e!=nil||!b.client.IsConnected()||!b.client.IsLoggedIn(){fail(w,409,"not connected or invalid chat");return}
  res,e:=b.db.Exec("UPDATE requests SET state='sending' WHERE id=? AND state='pending'",id);if e!=nil{fail(w,500,"approval failed");return};n,_:=res.RowsAffected();if n!=1{fail(w,409,"already handled");return}
  _,e=b.client.SendMessage(r.Context(),jid,&waE2E.Message{Conversation:proto.String(body)})
  state:="sent";if e!=nil{state="unknown"}

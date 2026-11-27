@@ -37,3 +37,13 @@ func TestSendDisabledByDefault(t *testing.T) {
  w:=httptest.NewRecorder();b.action(w,r)
  if w.Code!=http.StatusForbidden{t.Fatal(w.Code)}
 }
+
+func TestDisconnectedSessionCannotReadArchive(t *testing.T) {
+ b:=&Bridge{runtime:strings.Repeat("r",32),allow:map[string]bool{"allowed":true}}
+ for _,name:=range []string{"list_chats","search_contacts","get_messages","get_recent_messages","search_messages","get_message_context","get_media"} {
+  r:=httptest.NewRequest("POST","/v1/actions/"+name,strings.NewReader(`{"chatId":"allowed"}`))
+  r.Header.Set("Authorization","Bearer "+b.runtime)
+  w:=httptest.NewRecorder();b.action(w,r)
+  if w.Code!=http.StatusConflict{t.Fatalf("%s: %d",name,w.Code)}
+ }
+}

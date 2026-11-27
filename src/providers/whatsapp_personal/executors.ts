@@ -12,6 +12,8 @@ const maxMedia = 4 * 1024 * 1024;
 interface Context {
   apiKey: string;
   baseUrl: string;
+  cfAccessClientId: string;
+  cfAccessClientSecret: string;
   fetcher: typeof fetch;
   signal?: AbortSignal;
   transitFiles?: TransitFileWriter;
@@ -37,11 +39,26 @@ function origin(value: unknown): string {
   }
 }
 
+function accessCredentials(values: Record<string, string>): Pick<Context, "cfAccessClientId" | "cfAccessClientSecret"> {
+  const cfAccessClientId = values.cfAccessClientId?.trim();
+  const cfAccessClientSecret = values.cfAccessClientSecret?.trim();
+  if (!cfAccessClientId || !cfAccessClientSecret) {
+    throw new ProviderRequestError(400, "Configure both Cloudflare Access service token fields");
+  }
+  return { cfAccessClientId, cfAccessClientSecret };
+}
+
 async function request(ctx: Context, name: string, input: Record<string, unknown>): Promise<unknown> {
   const res = await ctx.fetcher(new URL("/v1/actions/" + name, ctx.baseUrl), {
     method: "POST",
     redirect: "error",
-    headers: { authorization: "Bearer " + ctx.apiKey, "content-type": "application/json", accept: "application/json" },
+    headers: {
+      authorization: "Bearer " + ctx.apiKey,
+      "content-type": "application/json",
+      accept: "application/json",
+      "CF-Access-Client-Id": ctx.cfAccessClientId,
+      "CF-Access-Client-Secret": ctx.cfAccessClientSecret,
+    },
     body: JSON.stringify(input),
     signal: ctx.signal,
   });
@@ -105,6 +122,7 @@ export const executors: ProviderExecutors = defineProviderExecutors<Context>({
     return {
       apiKey: credential.apiKey,
       baseUrl: origin(credential.values.baseUrl),
+      ...accessCredentials(credential.values),
       fetcher,
       signal: context.signal,
       transitFiles: context.transitFiles,
@@ -115,7 +133,11 @@ export const executors: ProviderExecutors = defineProviderExecutors<Context>({
 export const credentialValidators: CredentialValidators = {
   async apiKey(input, { fetcher, signal }) {
     const baseUrl = origin(input.values.baseUrl);
-    const status = await request({ apiKey: input.apiKey, baseUrl, fetcher, signal }, "get_status", {});
+    const status = await request(
+      { apiKey: input.apiKey, baseUrl, ...accessCredentials(input.values), fetcher, signal },
+      "get_status",
+      {},
+    );
     if (typeof status !== "object" || status === null || !("connected" in status) || status.connected !== true) {
       throw new ProviderRequestError(409, "Link WhatsApp from the owner QR page before saving the connection");
     }
