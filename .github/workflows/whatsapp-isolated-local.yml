@@ -1,0 +1,60 @@
+name: Isolated WhatsApp Worker smoke test
+on:
+  push:
+    branches: [test/whatsapp-isolated-worker]
+permissions:
+  contents: read
+concurrency:
+  group: whatsapp-isolated-local
+  cancel-in-progress: true
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Generate an isolated WhatsApp-only catalog
+        run: |
+          # Ephemeral checkout only; do not modify main or any deployed Worker.
+          find src/providers -mindepth 1 -maxdepth 1 -type d ! -name whatsapp_personal -exec rm -rf {} +
+          npm run generate:catalog
+          npm run build:web
+          node scripts/copy-catalog-assets.ts
+      - name: Verify local-only Worker bundle
+        run: npx --no-install wrangler deploy --config wrangler.whatsapp-local.json --dry-run --outdir /tmp/whatsapp-worker-build --minify
+      - name: Apply migrations to disposable local D1
+        run: npx --no-install wrangler d1 migrations apply whatsapp-local-test --config wrangler.whatsapp-local.json --local
+      - name: Smoke test authentication, catalog and MCP
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ADMIN=$(openssl rand -hex 32)
+          RUNTIME=$(openssl rand -hex 32)
+          KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$ADMIN"
+          echo "::add-mask::$RUNTIME"
+          echo "::add-mask::$KEY"
+          printf 'OOMOL_CONNECT_ADMIN_TOKEN=%s\nOOMOL_CONNECT_RUNTIME_TOKEN=%s\nOOMOL_CONNECT_ENCRYPTION_KEY=%s\n' "$ADMIN" "$RUNTIME" "$KEY" > .dev.vars
+          trap 'kill "$PID" 2>/dev/null || true; rm -f .dev.vars' EXIT
+          npx --no-install wrangler dev --config wrangler.whatsapp-local.json --local --ip 127.0.0.1 --port 8787 > /tmp/whatsapp-local.log 2>&1 &
+          PID=$!
+          for i in {1..60}; do
+            if curl -fsS --max-time 2 http://127.0.0.1:8787/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8787/health
+          test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/providers)" = 401
+          test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/mcp/tools)" = 401
+          curl -fsS -H "Authorization: Bearer $ADMIN" http://127.0.0.1:8787/api/providers > /tmp/providers.json
+          node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync("/tmp/providers.json","utf8"));if(!Array.isArray(p)||p.length!==1||p[0].service!=="whatsapp_personal")throw Error("Unexpected catalog");console.log("WhatsApp-only catalog verified")'
+          curl -fsS -H "Authorization: Bearer $RUNTIME" http://127.0.0.1:8787/mcp/tools >/tmp/tools.json
+          grep -q 'get_status' /tmp/tools.json
+          echo "Local MCP tool discovery verified. No WhatsApp credentials or real chat data used."

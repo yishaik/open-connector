@@ -1,0 +1,38 @@
+{
+  "name": "open-connector-whatsapp-local-test",
+  "main": "src/server/cloudflare.ts",
+  "compatibility_date": "2026-10-21",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "dist/web",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "whatsapp-local-test",
+      "database_id": "00000000-0000-4000-8000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "TRANSIT_FILES",
+      "id": "00000000000000000000000000000001"
+    }
+  ],
+  "vars": {
+    "TRANSIT_FILES_BACKEND": "kv",
+    "OOMOL_CONNECT_ALLOWED_ACTIONS": "whatsapp_personal.get_status",
+    "OOMOL_CONNECT_BLOCKED_ACTIONS": "whatsapp_personal.send_message,whatsapp_personal.get_media",
+    "OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK": "false",
+    "OOMOL_CONNECT_ORIGIN": "http://127.0.0.1:8787"
+  }
+}
