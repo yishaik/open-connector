@@ -49,6 +49,41 @@ afterEach(() => {
 });
 
 describe("ActionRunner", () => {
+  it("omits WhatsApp payloads from audit storage and application logs", async () => {
+    const runs = new MemoryRunLogStore();
+    const { entries, logger } = createTestLogger();
+    const action = { ...echoAction, id: "whatsapp_personal.echo", service: "whatsapp_personal" };
+    const provider = { ...exampleProvider, service: "whatsapp_personal", actions: [action] };
+    const catalog = createCatalogStore([provider], { executableActionIds: [action.id] });
+    const providerLoader = new TestProviderLoader(async () => ({
+      ok: true,
+      output: { message: "synthetic-private-output" },
+    }));
+    const runner = new ActionRunner({
+      catalog,
+      providerLoader,
+      connections: new ConnectionService({ catalog, providerLoader, store: new MemoryConnectionStore() }),
+      runs,
+      logger,
+    });
+    const run = await runner.run({
+      actionId: action.id,
+      input: { message: "synthetic-private-input" },
+      caller: "mcp",
+      policy: openPolicy,
+    });
+    expect(run).toMatchObject({
+      auditPersisted: true,
+      result: { ok: true, output: { message: "synthetic-private-output" } },
+    });
+    expect(runs.items[0]).toMatchObject({
+      inputSummary: "[private WhatsApp payload]",
+      outputSummary: "[private WhatsApp payload]",
+    });
+    expect(JSON.stringify({ runs: runs.items, entries })).not.toContain("synthetic-private-input");
+    expect(JSON.stringify({ runs: runs.items, entries })).not.toContain("synthetic-private-output");
+  });
+
   it("uses one execution id across logs, storage, and the result", async () => {
     const runs = new MemoryRunLogStore();
     const { entries, logger } = createTestLogger();

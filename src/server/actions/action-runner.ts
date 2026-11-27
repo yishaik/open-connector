@@ -241,8 +241,13 @@ export class ActionRunner {
       connectionProfile: connection?.summary?.profile,
       runtimeTokenId: input.runtimeTokenId,
       policy,
-      inputSummary: summarizeForRunLog(input.input),
-      outputSummary: result.ok ? summarizeForRunLog(result.output) : undefined,
+      inputSummary:
+        action.service === "whatsapp_personal" ? "[private WhatsApp payload]" : summarizeForRunLog(input.input),
+      outputSummary: result.ok
+        ? action.service === "whatsapp_personal"
+          ? "[private WhatsApp payload]"
+          : summarizeForRunLog(result.output)
+        : undefined,
       ...auditError,
     };
 
